@@ -50,18 +50,34 @@ export function speakLetter(letter: string, hooks?: { onend?: () => void }) {
   utterance.rate = 0.94;
   utterance.pitch = 1.12;
   utterance.volume = 1;
-  const voice = pickVoice();
-  if (voice) utterance.voice = voice;
   let done = false;
+  let started = false;
+  let voiceTimer = 0;
+  let finishTimer = 0;
   const finish = () => {
     if (done) return;
     done = true;
+    window.clearTimeout(voiceTimer);
+    window.clearTimeout(finishTimer);
+    synth.removeEventListener("voiceschanged", startSpeaking);
     hooks?.onend?.();
+  };
+  const startSpeaking = () => {
+    if (started || done) return;
+    started = true;
+    synth.removeEventListener("voiceschanged", startSpeaking);
+    const voice = pickVoice();
+    if (voice) utterance.voice = voice;
+    synth.speak(utterance);
+    finishTimer = window.setTimeout(finish, 2200);
   };
   utterance.onend = finish;
   utterance.onerror = finish;
-  synth.speak(utterance);
-  window.setTimeout(finish, 1800);
+  if (synth.getVoices().length) startSpeaking();
+  else {
+    synth.addEventListener("voiceschanged", startSpeaking);
+    voiceTimer = window.setTimeout(startSpeaking, 650);
+  }
 }
 
 export function stopSpeaking() {
