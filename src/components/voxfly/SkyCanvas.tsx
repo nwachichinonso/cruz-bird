@@ -180,9 +180,9 @@ export function SkyCanvas({
       } else {
         // Voice is the bird's lift: every spoken letter gives an upward burst.
         // Between calls gravity steadily pulls the bird down.
-        if (props.lift) vy -= 980 * dt;
-        else vy += 430 * dt;
-        vy = Math.max(-330, Math.min(390, vy));
+        if (props.lift) vy -= 620 * dt;
+        else vy += 160 * dt;
+        vy = Math.max(-260, Math.min(300, vy));
         birdY += vy * dt;
         if (birdY < 42) { birdY = 42; vy = Math.max(0, vy); }
         if (birdY > height - 48) { birdY = height - 48; vy = Math.min(0, vy); }
