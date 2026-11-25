@@ -45,7 +45,7 @@ export function SkyCanvas({
 }) {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const propsRef = useRef({ mode, difficulty, cheer, listening, lift, reduced, paused, failed, reset, onCrash });
-  propsRef.current = { mode, difficulty, cheer, listening, reduced, paused, failed, reset, onCrash };
+  propsRef.current = { mode, difficulty, cheer, listening, lift, reduced, paused, failed, reset, onCrash };
 
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -303,6 +303,71 @@ export function SkyCanvas({
       ctx.restore();
     };
 
+    const drawCity = () => {
+      const base = height * 0.72;
+      for (let i = 0; i < 11; i++) {
+        const cycle = width + 180;
+        const raw = (i * 112 - cam * 0.22) % cycle;
+        const x = (raw + cycle) % cycle - 70;
+        const w = 54 + (i % 3) * 18;
+        const h = 85 + (i % 4) * 25;
+        ctx.fillStyle = i % 2 ? "#79b9c5" : "#6aa7b8";
+        ctx.globalAlpha = 0.42;
+        ctx.fillRect(x, base - h, w, h);
+        ctx.fillStyle = "#fff2bd";
+        ctx.globalAlpha = 0.5;
+        for (let wy = base - h + 14; wy < base - 12; wy += 19) {
+          for (let wx = x + 10; wx < x + w - 5; wx += 17) ctx.fillRect(wx, wy, 6, 8);
+        }
+      }
+      ctx.globalAlpha = 1;
+    };
+
+    const drawRunway = () => {
+      const horizon = height * 0.79;
+      ctx.fillStyle = "#237e68";
+      ctx.beginPath();
+      ctx.moveTo(0, horizon);
+      ctx.lineTo(width, horizon);
+      ctx.lineTo(width, height);
+      ctx.lineTo(0, height);
+      ctx.closePath();
+      ctx.fill();
+      ctx.fillStyle = "#e8bd76";
+      ctx.beginPath();
+      ctx.moveTo(width * 0.43, horizon);
+      ctx.lineTo(width * 0.57, horizon);
+      ctx.lineTo(width * 0.94, height);
+      ctx.lineTo(width * 0.06, height);
+      ctx.closePath();
+      ctx.fill();
+      ctx.fillStyle = "#3c5361";
+      ctx.beginPath();
+      ctx.moveTo(width * 0.47, horizon);
+      ctx.lineTo(width * 0.53, horizon);
+      ctx.lineTo(width * 0.82, height);
+      ctx.lineTo(width * 0.18, height);
+      ctx.closePath();
+      ctx.fill();
+      ctx.strokeStyle = "#f8e4a7";
+      ctx.lineWidth = 3;
+      ctx.beginPath();
+      ctx.moveTo(width * 0.5, horizon);
+      ctx.lineTo(width * 0.5, height);
+      ctx.stroke();
+      for (let i = 0; i < 7; i++) {
+        const t = ((i / 7 + (cam * 0.0018) % 1) % 1);
+        const y = horizon + (height - horizon) * t * t;
+        const half = 3 + t * width * 0.12;
+        ctx.strokeStyle = "rgba(255,239,190,0.58)";
+        ctx.lineWidth = 1 + t * 3;
+        ctx.beginPath();
+        ctx.moveTo(width / 2 - half, y);
+        ctx.lineTo(width / 2 + half, y);
+        ctx.stroke();
+      }
+    };
+
     const drawHills = (base: number, amp: number, color: string, parallax: number) => {
       ctx.fillStyle = color;
       ctx.beginPath();
@@ -364,10 +429,12 @@ export function SkyCanvas({
       }
       ctx.globalAlpha = 1;
 
+      drawCity();
       drawHills(78, 16, HILL_FAR, 0.25);
       drawTreeLine();
       drawGates();
       drawHills(40, 12, HILL_NEAR, 0.45);
+      drawRunway();
       drawBird();
 
       for (const p of particles) {
