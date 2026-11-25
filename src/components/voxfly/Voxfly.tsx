@@ -31,6 +31,7 @@ export function CruzingBird() {
   const [index, setIndex] = useState(0);
   const [paused, setPaused] = useState(false);
   const [failed, setFailed] = useState(false);
+  const [voiceHits, setVoiceHits] = useState(0);
   const [runReset, setRunReset] = useState(0);
   const [note, setNote] = useState("");
   const [cheer, setCheer] = useState(0);
@@ -164,6 +165,7 @@ export function CruzingBird() {
     const next = i + 1;
     failureLock.current = false;
     voiceHitsRef.current = 0;
+    setVoiceHits(0);
     indexRef.current = next;
     setIndex(next);
     setNote(`Yes! Now ${LETTERS[next].id}`);
@@ -202,8 +204,10 @@ export function CruzingBird() {
         return;
       }
       voiceHitsRef.current += 1;
+      setVoiceHits(voiceHitsRef.current);
       if (voiceHitsRef.current >= 3) {
         voiceHitsRef.current = 0;
+        setVoiceHits(0);
         scoreRef.current();
       }
     },
@@ -482,7 +486,7 @@ export function CruzingBird() {
               <div className="mx-auto mt-5 h-2 max-w-xs overflow-hidden rounded-full bg-white/30 shadow-inner">
                 <div className="h-full rounded-full bg-gold transition-[width] duration-300" style={{ width: `${((index + 1) / LETTERS.length) * 100}%` }} />
               </div>
-              <p className="mt-2 text-sm font-extrabold tracking-wide text-white drop-shadow">LETTER {index + 1} / {LETTERS.length} · 3 CALLS TO FLY ON · 3 CALLS TO FLY ON</p>
+              <p className="mt-2 text-sm font-extrabold tracking-wide text-white drop-shadow">LETTER {index + 1} / {LETTERS.length} · {save.settings.input === "voice" ? `${voiceHits}/3 CALLS` : "TAP TO FLY"} · 3 CALLS TO FLY ON</p>
             </div>
             <p className="mt-3 flex items-center justify-center gap-2 text-center text-ink" aria-live="polite">
               {listener.phase === "listening" && save.settings.input === "voice" && <span className="listen-dot" />}
