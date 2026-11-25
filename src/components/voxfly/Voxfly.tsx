@@ -52,7 +52,6 @@ export function CruzingBird() {
   const advanceLock = useRef(false);
   const failureLock = useRef(false);
   const voiceHitsRef = useRef(0);
-  const voiceHitsRef = useRef(0);
   indexRef.current = index;
   screenRef.current = screen;
 
