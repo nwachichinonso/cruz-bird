@@ -14,7 +14,7 @@ import {
 import { useLetterListener } from "@/game/useLetterListener";
 import { SkyCanvas } from "@/components/voxfly/SkyCanvas";
 
-type Screen = "splash" | "menu" | "setup" | "test" | "play" | "done" | "progress" | "gate" | "parent" | "break";
+type Screen = "splash" | "menu" | "setup" | "test" | "play" | "crashed" | "done" | "progress" | "gate" | "parent" | "break";
 
 function minutesLabel(ms: number): string {
   const total = Math.max(0, Math.floor(ms / 1000));
@@ -30,6 +30,8 @@ export function CruzingBird() {
   const [screen, setScreen] = useState<Screen>("splash");
   const [index, setIndex] = useState(0);
   const [paused, setPaused] = useState(false);
+  const [failed, setFailed] = useState(false);
+  const [runReset, setRunReset] = useState(0);
   const [note, setNote] = useState("");
   const [cheer, setCheer] = useState(0);
   const [assist, setAssist] = useState(false);
@@ -47,6 +49,7 @@ export function CruzingBird() {
   const pendingFrom = useRef(0);
   const gateNext = useRef<"parent" | "extra">("parent");
   const advanceLock = useRef(false);
+  const failureLock = useRef(false);
   indexRef.current = index;
   screenRef.current = screen;
 
@@ -126,7 +129,7 @@ export function CruzingBird() {
   }, [screen, paused, hidden, index, save.settings.input, save.settings.sound, save.settings.coach]);
 
   const score = () => {
-    if (screenRef.current !== "play" || advanceLock.current) return;
+    if (screenRef.current !== "play" || advanceLock.current || failureLock.current) return;
     advanceLock.current = true;
     window.setTimeout(() => {
       advanceLock.current = false;
@@ -157,16 +160,32 @@ export function CruzingBird() {
       return;
     }
     const next = i + 1;
+    failureLock.current = false;
     indexRef.current = next;
     setIndex(next);
     setNote(`Yes! Now ${LETTERS[next].id}`);
+  };
+
+  const failRun = (heard?: string) => {
+    if (screenRef.current !== "play" || failureLock.current) return;
+    failureLock.current = true;
+    setFailed(true);
+    const id = LETTERS[indexRef.current].id;
+    setNote(heard ? `I heard “${heard.slice(0, 28)}”. The bird is falling!` : `Say ${id} before the bird falls!`);
+    setSave((prev) => {
+      const current = prev.letters[id] ?? { ok: 0, miss: 0 };
+      return { ...prev, resumeIndex: 0, letters: {
+        ...prev.letters,
+        [id]: { ok: Number(current.ok) || 0, miss: (Number(current.miss) || 0) + 1 },
+      }};
+    });
   };
 
   const scoreRef = useRef(score);
   scoreRef.current = score;
 
   const voiceOn =
-    save.settings.input === "voice" && !hidden && ((screen === "play" && !paused) || screen === "test");
+    save.settings.input === "voice" && !hidden && ((screen === "play" && !paused && !failed) || screen === "test");
 
   const listener = useLetterListener({
     enabled: voiceOn,
@@ -183,21 +202,15 @@ export function CruzingBird() {
     },
     onMiss: (text) => {
       if (screenRef.current !== "play") return;
-      const id = LETTERS[indexRef.current].id;
-      const heard = text.length > 32 ? `${text.slice(0, 32)}…` : text;
-      setNote(`I heard “${heard}”. Try ${id}.`);
-      setSave((prev) => {
-        const current = prev.letters[id] ?? { ok: 0, miss: 0 };
-        return {
-          ...prev,
-          letters: {
-            ...prev.letters,
-            [id]: { ok: Number(current.ok) || 0, miss: (Number(current.miss) || 0) + 1 },
-          },
-        };
-      });
+      failRun(text);
     },
   });
+
+  useEffect(() => {
+    if (screen !== "play" || paused || failed || save.settings.input !== "voice" || listener.phase !== "listening") return;
+    const timer = window.setTimeout(() => failRun(), 5200);
+    return () => window.clearTimeout(timer);
+  }, [screen, paused, failed, index, save.settings.input, listener.phase]);
 
   useEffect(() => {
     if (screen !== "play" || paused) return;
@@ -228,6 +241,9 @@ export function CruzingBird() {
     indexRef.current = next;
     setIndex(next);
     setPaused(false);
+    setFailed(false);
+    failureLock.current = false;
+    setRunReset((value) => value + 1);
     setNote("");
     setScreen("play");
     setSave((prev) => ({ ...prev, resumeIndex: next }));
@@ -335,6 +351,9 @@ export function CruzingBird() {
         listening={listener.phase === "listening"}
         reduced={reduced}
         paused={screen === "play" && paused}
+        failed={failed}
+        reset={runReset}
+        onCrash={() => setScreen("crashed")}
       />
       <div className="overlay pointer-events-none absolute inset-0 flex flex-col">
         {screen === "splash" && (
@@ -448,12 +467,12 @@ export function CruzingBird() {
                 <Volume2 size={22} />
               </button>
             </div>
-            <div className="card mt-3 text-center">
+            <div className="letter-hud mt-5 text-center">
               <LetterMark id={letter.id} example={letter.example} />
-              <div className="mt-3 h-2 overflow-hidden rounded-full bg-ink/10">
-                <div className="h-full bg-gold" style={{ width: `${(index / LETTERS.length) * 100}%` }} />
+              <div className="mx-auto mt-5 h-2 max-w-xs overflow-hidden rounded-full bg-white/30 shadow-inner">
+                <div className="h-full rounded-full bg-gold transition-[width] duration-300" style={{ width: `${((index + 1) / LETTERS.length) * 100}%` }} />
               </div>
-              <p className="mt-2 text-muted">Letter {index + 1} of {LETTERS.length}</p>
+              <p className="mt-2 text-sm font-extrabold tracking-wide text-white drop-shadow">LETTER {index + 1} / {LETTERS.length}</p>
             </div>
             <p className="mt-3 flex items-center justify-center gap-2 text-center text-ink" aria-live="polite">
               {listener.phase === "listening" && save.settings.input === "voice" && <span className="listen-dot" />}
@@ -500,6 +519,22 @@ export function CruzingBird() {
               >
                 <House size={18} />
                 Exit
+              </button>
+            </div>
+          </div>
+        )}
+
+        {screen === "crashed" && (
+          <div className="pointer-events-auto absolute inset-0 flex items-end bg-slate-950/20 px-4 pb-5">
+            <div className="crash-panel w-full text-center">
+              <div className="text-5xl" aria-hidden="true">💥</div>
+              <h1 className="mt-2 font-display text-4xl">Bird down!</h1>
+              <p className="mt-2 text-muted">That letter got away. Let’s start again from A.</p>
+              <button type="button" className="btn btn-primary mt-5" onClick={() => startPlay(0)}>
+                <RotateCcw size={20} /> Start again
+              </button>
+              <button type="button" className="btn btn-ghost mt-2" onClick={() => setScreen("menu")}>
+                <House size={18} /> Main menu
               </button>
             </div>
           </div>
@@ -720,12 +755,36 @@ export function CruzingBird() {
 }
 
 function LetterMark({ id, example }: { id: string; example: string }) {
+  const hue = (id.charCodeAt(0) * 37) % 360;
   return (
-    <>
-      <h1 key={id} className="letter-pop font-display text-8xl leading-none">
-        {id}
-      </h1>
-      <p className="mt-1 text-muted">as in {example}</p>
-    </>
+    <div key={id} className="letter-character letter-pop" role="img" aria-label={`Cartoon letter ${id}, as in ${example}`}>
+      <svg viewBox="0 0 260 190" className="mx-auto block h-44 w-full max-w-[18rem] overflow-visible" aria-hidden="true">
+        <defs>
+          <linearGradient id={`letter-fill-${id}`} x1="0" y1="0" x2="0.8" y2="1">
+            <stop offset="0%" stopColor={`hsl(${hue} 94% 76%)`} />
+            <stop offset="100%" stopColor={`hsl(${(hue + 28) % 360} 82% 48%)`} />
+          </linearGradient>
+          <filter id={`letter-shadow-${id}`} x="-30%" y="-30%" width="160%" height="170%">
+            <feDropShadow dx="0" dy="9" stdDeviation="4" floodColor="#16323a" floodOpacity=".28" />
+          </filter>
+        </defs>
+        <g filter={`url(#letter-shadow-${id})`}>
+          <text x="130" y="143" textAnchor="middle" fontFamily="Fredoka, Nunito, system-ui, sans-serif" fontSize="154" fontWeight="700" fill={`url(#letter-fill-${id})`} stroke="#fff9ee" strokeWidth="13" strokeLinejoin="round" paintOrder="stroke">{id}</text>
+          <path d="M174 65 Q185 54 195 65" fill="none" stroke="#16323a" strokeWidth="5" strokeLinecap="round" />
+          <ellipse cx="174" cy="83" rx="8" ry="11" fill="#fff" stroke="#16323a" strokeWidth="3" />
+          <ellipse cx="197" cy="83" rx="8" ry="11" fill="#fff" stroke="#16323a" strokeWidth="3" />
+          <circle cx="176" cy="85" r="3.6" fill="#16323a" />
+          <circle cx="199" cy="85" r="3.6" fill="#16323a" />
+          <path d="M181 105 Q187 113 194 104" fill="none" stroke="#16323a" strokeWidth="4" strokeLinecap="round" />
+          <ellipse cx="163" cy="101" rx="7" ry="4" fill="#ff8b8b" opacity=".72" />
+          <ellipse cx="207" cy="101" rx="7" ry="4" fill="#ff8b8b" opacity=".72" />
+        </g>
+        <path d="M48 128 Q34 138 30 151" fill="none" stroke="#fff9ee" strokeWidth="7" strokeLinecap="round" />
+        <circle cx="28" cy="154" r="8" fill="#ffca55" stroke="#fff9ee" strokeWidth="4" />
+        <path d="M210 135 Q225 142 230 153" fill="none" stroke="#fff9ee" strokeWidth="7" strokeLinecap="round" />
+        <circle cx="232" cy="157" r="8" fill="#ffca55" stroke="#fff9ee" strokeWidth="4" />
+      </svg>
+      <p className="mt-1 font-display text-lg font-bold text-white drop-shadow">as in {example}</p>
+    </div>
   );
 }
