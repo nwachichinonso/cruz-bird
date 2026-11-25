@@ -32,6 +32,7 @@ export function useLetterListener({ enabled, letter, sound, coach, runId, onMatc
   const [phase, setPhase] = useState<ListenPhase>("off");
   const [heard, setHeard] = useState("");
   const [voiceActive, setVoiceActive] = useState(false);
+  const [voicePulse, setVoicePulse] = useState(0);
   const onMatchRef = useRef(onMatch);
   const onMissRef = useRef(onMiss);
   const speakNowRef = useRef<() => void>(() => {});
@@ -72,6 +73,7 @@ export function useLetterListener({ enabled, letter, sound, coach, runId, onMatc
             if (now - lastMatch < 500) continue;
             lastMatch = now;
             setVoiceActive(true);
+            setVoicePulse((value) => value + 1);
             window.clearTimeout(voiceTimer);
             voiceTimer = window.setTimeout(() => setVoiceActive(false), 1050);
             setHeard(hit);
@@ -125,5 +127,5 @@ export function useLetterListener({ enabled, letter, sound, coach, runId, onMatc
       speakNowRef.current = () => {};
     };
   }, [enabled, letter, sound, coach, runId]);
-  return { phase, heard, voiceActive, speakNow: () => speakNowRef.current() };
+  return { phase, heard, voiceActive, voicePulse, speakNow: () => speakNowRef.current() };
 }
