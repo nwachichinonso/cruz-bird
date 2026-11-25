@@ -196,3 +196,40 @@
     animation: none;
   }
 }
+
+
+/* Runner-style floating controls and transparent cartoon alphabet character. */
+@layer components {
+  .letter-hud {
+    pointer-events: none;
+    filter: drop-shadow(0 5px 18px rgb(18 54 72 / 18%));
+  }
+  .letter-character {
+    display: grid;
+    justify-items: center;
+    min-height: 12rem;
+    background: transparent;
+  }
+  .letter-character svg { overflow: visible; }
+  .crash-panel {
+    border: 1px solid rgb(255 255 255 / 50%);
+    border-radius: 2rem;
+    padding: 1.5rem;
+    background: rgb(255 250 239 / 96%);
+    color: var(--color-ink);
+    box-shadow: 0 24px 70px rgb(13 39 50 / 25%);
+    backdrop-filter: blur(18px);
+  }
+  .icon-btn {
+    border: 1px solid rgb(255 255 255 / 60%);
+    background: rgb(255 250 239 / 82%);
+    box-shadow: 0 8px 24px rgb(13 39 50 / 12%);
+    backdrop-filter: blur(12px);
+    transition: transform 160ms ease, background 160ms ease;
+  }
+  .icon-btn:active:not(:disabled) { transform: translateY(2px) scale(.96); }
+}
+@media (max-width: 380px) {
+  .letter-character svg { height: 9.5rem; }
+  .letter-character { min-height: 10rem; }
+}
