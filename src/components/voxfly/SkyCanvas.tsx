@@ -27,6 +27,9 @@ export function SkyCanvas({
   listening,
   reduced,
   paused,
+  failed,
+  reset,
+  onCrash,
 }: {
   mode: Mode;
   difficulty: Difficulty;
@@ -34,10 +37,13 @@ export function SkyCanvas({
   listening: boolean;
   reduced: boolean;
   paused: boolean;
+  failed: boolean;
+  reset: number;
+  onCrash: () => void;
 }) {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
-  const propsRef = useRef({ mode, difficulty, cheer, listening, reduced, paused });
-  propsRef.current = { mode, difficulty, cheer, listening, reduced, paused };
+  const propsRef = useRef({ mode, difficulty, cheer, listening, reduced, paused, failed, reset, onCrash });
+  propsRef.current = { mode, difficulty, cheer, listening, reduced, paused, failed, reset, onCrash };
 
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -57,6 +63,10 @@ export function SkyCanvas({
     let vy = 0;
     let ready = false;
     let lastCheer = propsRef.current.cheer;
+    let lastReset = propsRef.current.reset;
+    let wasFailed = false;
+    let crashAt: number | null = null;
+    let crashSent = false;
     const gates: Gate[] = [];
     const particles: Particle[] = [];
     let gateSerial = 0;
@@ -110,13 +120,44 @@ export function SkyCanvas({
       }
     };
 
+    const updateParticles = (dt: number) => {
+      for (let i = particles.length - 1; i >= 0; i--) {
+        const p = particles[i];
+        p.life -= dt;
+        p.x += p.vx * dt;
+        p.y += p.vy * dt;
+        p.vy += 40 * dt;
+        if (p.life <= 0) particles.splice(i, 1);
+      }
+    };
+
     const update = (dt: number) => {
       const props = propsRef.current;
+      if (props.reset !== lastReset) {
+        lastReset = props.reset;
+        cam = 0; time = 0; birdY = height * 0.42; vy = 0; gateSerial = 0;
+        crashAt = null; crashSent = false; wasFailed = false;
+        seedGates();
+      }
       if (props.cheer !== lastCheer) {
         lastCheer = props.cheer;
         vy = -150;
         spawnParticles(width * 0.32, birdY);
       }
+      if (props.failed) {
+        if (!wasFailed) { wasFailed = true; crashAt = null; vy = Math.max(90, vy); }
+        time += dt;
+        vy += 980 * dt;
+        birdY += vy * dt;
+        if (birdY >= height - 46) {
+          birdY = height - 46; vy = 0;
+          if (crashAt === null) { crashAt = time; spawnParticles(width * 0.32, birdY); }
+          if (!crashSent && time - crashAt > 0.55) { crashSent = true; propsRef.current.onCrash(); }
+        }
+        updateParticles(dt);
+        return;
+      }
+      wasFailed = false;
       const ambient = props.mode === "ambient";
       const easy = props.difficulty === "easy";
       const speed = ambient ? 28 : easy ? 78 : 118;
@@ -159,14 +200,7 @@ export function SkyCanvas({
         gate.glow = Math.max(0, gate.glow - dt * 0.8);
       }
 
-      for (let i = particles.length - 1; i >= 0; i--) {
-        const p = particles[i];
-        p.life -= dt;
-        p.x += p.vx * dt;
-        p.y += p.vy * dt;
-        p.vy += 40 * dt;
-        if (p.life <= 0) particles.splice(i, 1);
-      }
+      updateParticles(dt);
     };
 
     const puff = (x: number, y: number, scale: number) => {
@@ -212,6 +246,7 @@ export function SkyCanvas({
       const stretch = 1 + Math.min(0.08, Math.abs(vy) / 1100);
       ctx.save();
       ctx.translate(width * 0.32, birdY);
+      if (propsRef.current.failed) ctx.rotate(0.48);
       ctx.scale(2.05 * stretch, 2.05 * squash);
       ctx.fillStyle = "rgba(22,50,58,0.12)";
       ctx.beginPath();
