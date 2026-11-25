@@ -51,6 +51,7 @@ export function CruzingBird() {
   const advanceLock = useRef(false);
   const failureLock = useRef(false);
   const voiceHitsRef = useRef(0);
+  const voiceHitsRef = useRef(0);
   indexRef.current = index;
   screenRef.current = screen;
 
@@ -249,6 +250,7 @@ export function CruzingBird() {
     setPaused(false);
     setFailed(false);
     failureLock.current = false;
+    voiceHitsRef.current = 0;
     voiceHitsRef.current = 0;
     setRunReset((value) => value + 1);
     setNote("");
@@ -480,7 +482,7 @@ export function CruzingBird() {
               <div className="mx-auto mt-5 h-2 max-w-xs overflow-hidden rounded-full bg-white/30 shadow-inner">
                 <div className="h-full rounded-full bg-gold transition-[width] duration-300" style={{ width: `${((index + 1) / LETTERS.length) * 100}%` }} />
               </div>
-              <p className="mt-2 text-sm font-extrabold tracking-wide text-white drop-shadow">LETTER {index + 1} / {LETTERS.length} · 3 CALLS TO FLY ON</p>
+              <p className="mt-2 text-sm font-extrabold tracking-wide text-white drop-shadow">LETTER {index + 1} / {LETTERS.length} · 3 CALLS TO FLY ON · 3 CALLS TO FLY ON</p>
             </div>
             <p className="mt-3 flex items-center justify-center gap-2 text-center text-ink" aria-live="polite">
               {listener.phase === "listening" && save.settings.input === "voice" && <span className="listen-dot" />}
