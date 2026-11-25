@@ -219,7 +219,7 @@ export function CruzingBird() {
 
   useEffect(() => {
     if (screen !== "play" || paused || failed || save.settings.input !== "voice" || listener.phase !== "listening") return;
-    const timer = window.setTimeout(() => failRun(), 3600);
+    const timer = window.setTimeout(() => failRun(), 2500);
     return () => window.clearTimeout(timer);
   }, [screen, paused, failed, index, save.settings.input, listener.phase, listener.voicePulse]);
 
@@ -255,7 +255,7 @@ export function CruzingBird() {
     setFailed(false);
     failureLock.current = false;
     voiceHitsRef.current = 0;
-    voiceHitsRef.current = 0;
+    setVoiceHits(0);
     setRunReset((value) => value + 1);
     setNote("");
     setScreen("play");
