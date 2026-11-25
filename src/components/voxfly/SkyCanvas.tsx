@@ -315,6 +315,32 @@ export function SkyCanvas({
       ctx.fill();
     };
 
+    const drawTreeLine = () => {
+      for (let i = 0; i < 7; i++) {
+        const cycle = width + 250;
+        const rawX = (i * 178 - cam * 0.52) % cycle;
+        const x = (rawX + cycle) % cycle - 90;
+        const scale = 0.58 + (i % 3) * 0.16;
+        const base = height - 26;
+        ctx.save();
+        ctx.translate(x, base);
+        ctx.scale(scale, scale);
+        ctx.fillStyle = "#8b5a3c";
+        ctx.fillRect(-5, -55, 10, 58);
+        ctx.fillStyle = i % 2 ? "#239b72" : "#42b96f";
+        ctx.beginPath();
+        ctx.arc(0, -70, 27, 0, Math.PI * 2);
+        ctx.arc(-19, -57, 19, 0, Math.PI * 2);
+        ctx.arc(19, -57, 19, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.fillStyle = "rgba(255,255,255,0.22)";
+        ctx.beginPath();
+        ctx.arc(-8, -79, 7, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.restore();
+      }
+    };
+
     const draw = () => {
       const sky = ctx.createLinearGradient(0, 0, 0, height);
       sky.addColorStop(0, SKY_TOP);
@@ -338,6 +364,7 @@ export function SkyCanvas({
       ctx.globalAlpha = 1;
 
       drawHills(78, 16, HILL_FAR, 0.25);
+      drawTreeLine();
       drawGates();
       drawHills(40, 12, HILL_NEAR, 0.45);
       drawBird();
