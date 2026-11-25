@@ -1,0 +1,198 @@
+@import url("https://fonts.googleapis.com/css2?family=Fredoka:wght@500;600;700&family=Nunito:wght@600;700;800&display=swap");
+@import "tailwindcss";
+
+@theme {
+  --font-display: "Fredoka", "Nunito", system-ui, sans-serif;
+  --font-sans: "Nunito", system-ui, sans-serif;
+  --color-ink: #16323a;
+  --color-cream: #fff6ea;
+  --color-sky: #79d0f2;
+  --color-sky-deep: #2f8eb8;
+  --color-gold: #e6a312;
+  --color-coral: #e36a45;
+  --color-muted: #4e6570;
+  --radius-card: 1.75rem;
+}
+
+@layer base {
+  html,
+  body {
+    height: 100%;
+    overflow: hidden;
+    overscroll-behavior: none;
+  }
+
+  body {
+    margin: 0;
+    background: var(--color-sky-deep);
+    color: var(--color-ink);
+    font-family: var(--font-sans);
+    line-height: 1.45;
+  }
+
+  button:not(:disabled),
+  [role="button"]:not(:disabled) {
+    cursor: pointer;
+  }
+
+  button:disabled {
+    cursor: not-allowed;
+    opacity: 0.55;
+  }
+
+  button:focus-visible {
+    outline: 3px solid var(--color-gold);
+    outline-offset: 3px;
+  }
+}
+
+@layer components {
+  .stage {
+    position: relative;
+    width: 100%;
+    max-width: 32rem;
+    height: 100dvh;
+    margin: 0 auto;
+    overflow: hidden;
+    background: var(--color-sky);
+    user-select: none;
+  }
+
+  .card {
+    background: color-mix(in srgb, var(--color-cream) 94%, transparent);
+    color: var(--color-ink);
+    border-radius: var(--radius-card);
+    padding: 1.25rem;
+  }
+
+  .btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+    width: 100%;
+    min-height: 3.25rem;
+    padding: 0.75rem 1.25rem;
+    border-radius: 999px;
+    border: 2px solid transparent;
+    font-family: var(--font-display);
+    font-weight: 600;
+    font-size: 1.125rem;
+    line-height: 1.2;
+  }
+
+  .btn:active:not(:disabled) {
+    transform: scale(0.98);
+  }
+
+  .btn-primary {
+    background: var(--color-ink);
+    color: var(--color-cream);
+  }
+
+  .btn-gold {
+    background: var(--color-gold);
+    color: var(--color-ink);
+  }
+
+  .btn-ghost {
+    background: transparent;
+    color: var(--color-ink);
+    border-color: color-mix(in srgb, var(--color-ink) 18%, transparent);
+  }
+
+  .icon-btn {
+    display: grid;
+    place-items: center;
+    width: 3rem;
+    height: 3rem;
+    border-radius: 999px;
+    border: 0;
+    background: var(--color-cream);
+    color: var(--color-ink);
+  }
+
+  .choice {
+    min-height: 3rem;
+    border-radius: 999px;
+    border: 2px solid color-mix(in srgb, var(--color-ink) 16%, transparent);
+    background: transparent;
+    color: var(--color-ink);
+    font-family: var(--font-display);
+    font-weight: 600;
+    padding: 0.4rem 0.9rem;
+  }
+
+  .choice-on {
+    background: var(--color-ink);
+    color: var(--color-cream);
+    border-color: var(--color-ink);
+  }
+
+  .overlay {
+    padding-top: max(1rem, env(safe-area-inset-top));
+    padding-right: 1rem;
+    padding-bottom: max(1rem, env(safe-area-inset-bottom));
+    padding-left: 1rem;
+  }
+}
+
+@keyframes letter-pop {
+  from {
+    transform: scale(0.88);
+    opacity: 0.45;
+  }
+  to {
+    transform: scale(1);
+    opacity: 1;
+  }
+}
+
+.letter-pop {
+  animation: letter-pop 220ms ease-out;
+}
+
+@keyframes shake {
+  0%,
+  100% {
+    transform: translateX(0);
+  }
+  25% {
+    transform: translateX(-6px);
+  }
+  75% {
+    transform: translateX(6px);
+  }
+}
+
+.shake {
+  animation: shake 280ms ease;
+}
+
+@keyframes listen-pulse {
+  0%,
+  100% {
+    transform: scale(1);
+    opacity: 1;
+  }
+  50% {
+    transform: scale(0.72);
+    opacity: 0.55;
+  }
+}
+
+.listen-dot {
+  width: 0.7rem;
+  height: 0.7rem;
+  border-radius: 999px;
+  background: var(--color-coral);
+  animation: listen-pulse 1s ease-in-out infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .letter-pop,
+  .shake,
+  .listen-dot {
+    animation: none;
+  }
+}

@@ -1,0 +1,36 @@
+{
+  "url": "http://127.0.0.1:8080/",
+  "viewports": {
+    "desktop": {
+      "width": 1280,
+      "height": 800,
+      "status": 200,
+      "title": "VOXFLY",
+      "hasCanvas": true,
+      "bodyTextLen": 32,
+      "bodyTextHash": "ee3d7ad74f1e1d3818435fbd5545d7a5a4a75dd79c5ee5a89070dd0525c691a4",
+      "bodyTextPrefix": "VOXFLY Say it. Fly it. Learn it.",
+      "horizontalOverflow": false,
+      "consoleErrors": [],
+      "pageErrors": [],
+      "screenshot": "/workspace/screenshots/app-builder-preview.png"
+    },
+    "mobile": {
+      "width": 390,
+      "height": 844,
+      "status": 200,
+      "title": "VOXFLY",
+      "hasCanvas": true,
+      "bodyTextLen": 32,
+      "bodyTextHash": "ee3d7ad74f1e1d3818435fbd5545d7a5a4a75dd79c5ee5a89070dd0525c691a4",
+      "bodyTextPrefix": "VOXFLY Say it. Fly it. Learn it.",
+      "horizontalOverflow": false,
+      "consoleErrors": [],
+      "pageErrors": [],
+      "screenshot": "/workspace/screenshots/app-builder-preview-mobile.png"
+    }
+  },
+  "brandWarnings": [],
+  "authWarnings": [],
+  "verdictFile": "/workspace/screenshots/app-builder-preview.json"
+}
