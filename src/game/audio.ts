@@ -27,12 +27,14 @@ export function playCheer() {
 
 function pickVoice(): SpeechSynthesisVoice | null {
   if (typeof speechSynthesis === "undefined") return null;
-  const voices = speechSynthesis.getVoices();
-  return (
-    voices.find((voice) => /en[-_]US/i.test(voice.lang) && /samantha|google|female|child/i.test(voice.name)) ??
-    voices.find((voice) => voice.lang.toLowerCase().startsWith("en")) ??
-    null
-  );
+  const voices = speechSynthesis.getVoices().filter((voice) => voice.lang.toLowerCase().startsWith("en"));
+  if (!voices.length) return null;
+  const preferred = [/samantha/i, /ava/i, /aria/i, /jenny/i, /google us english/i, /microsoft.*online/i, /natural|neural|enhanced|premium/i];
+  for (const pattern of preferred) {
+    const match = voices.find((voice) => pattern.test(voice.name));
+    if (match) return match;
+  }
+  return voices.find((voice) => /en[-_]US/i.test(voice.lang)) ?? voices[0];
 }
 
 export function speakLetter(letter: string, hooks?: { onend?: () => void }) {
@@ -45,8 +47,9 @@ export function speakLetter(letter: string, hooks?: { onend?: () => void }) {
   synth.cancel();
   const utterance = new SpeechSynthesisUtterance(letter);
   utterance.lang = "en-US";
-  utterance.rate = 0.88;
-  utterance.pitch = 1.05;
+  utterance.rate = 0.94;
+  utterance.pitch = 1.12;
+  utterance.volume = 1;
   const voice = pickVoice();
   if (voice) utterance.voice = voice;
   let done = false;
