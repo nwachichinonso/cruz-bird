@@ -50,6 +50,7 @@ export function CruzingBird() {
   const gateNext = useRef<"parent" | "extra">("parent");
   const advanceLock = useRef(false);
   const failureLock = useRef(false);
+  const voiceHitsRef = useRef(0);
   indexRef.current = index;
   screenRef.current = screen;
 
@@ -161,6 +162,7 @@ export function CruzingBird() {
     }
     const next = i + 1;
     failureLock.current = false;
+    voiceHitsRef.current = 0;
     indexRef.current = next;
     setIndex(next);
     setNote(`Yes! Now ${LETTERS[next].id}`);
@@ -198,7 +200,11 @@ export function CruzingBird() {
         startPlay(pendingFrom.current);
         return;
       }
-      scoreRef.current();
+      voiceHitsRef.current += 1;
+      if (voiceHitsRef.current >= 3) {
+        voiceHitsRef.current = 0;
+        scoreRef.current();
+      }
     },
     onMiss: (text) => {
       if (screenRef.current !== "play") return;
@@ -208,9 +214,9 @@ export function CruzingBird() {
 
   useEffect(() => {
     if (screen !== "play" || paused || failed || save.settings.input !== "voice" || listener.phase !== "listening") return;
-    const timer = window.setTimeout(() => failRun(), 5200);
+    const timer = window.setTimeout(() => failRun(), 3600);
     return () => window.clearTimeout(timer);
-  }, [screen, paused, failed, index, save.settings.input, listener.phase]);
+  }, [screen, paused, failed, index, save.settings.input, listener.phase, listener.voicePulse]);
 
   useEffect(() => {
     if (screen !== "play" || paused) return;
@@ -243,6 +249,7 @@ export function CruzingBird() {
     setPaused(false);
     setFailed(false);
     failureLock.current = false;
+    voiceHitsRef.current = 0;
     setRunReset((value) => value + 1);
     setNote("");
     setScreen("play");
@@ -349,6 +356,7 @@ export function CruzingBird() {
         difficulty={save.settings.difficulty}
         cheer={cheer}
         listening={listener.phase === "listening"}
+        lift={listener.voiceActive}
         reduced={reduced}
         paused={screen === "play" && paused}
         failed={failed}
@@ -360,7 +368,7 @@ export function CruzingBird() {
           <button type="button" className="pointer-events-auto mt-auto w-full text-left" onClick={() => setScreen("menu")}>
             <div className="card text-center">
               <h1 className="font-display text-6xl tracking-wide">Cruzing Bird</h1>
-              <p className="mt-2 text-lg text-muted">Say it. Fly it. Learn it.</p>
+              <p className="mt-2 text-lg text-muted">KEEP TALKING. KEEP FLYING.</p>
             </div>
           </button>
         )}
@@ -374,7 +382,7 @@ export function CruzingBird() {
             </div>
             <div className="card mt-4">
               <h1 className="font-display text-5xl tracking-wide">Cruzing Bird</h1>
-              <p className="mt-1 text-muted">Say the letter. The bird keeps flying.</p>
+              <p className="mt-1 text-muted">Say the same letter three times to power the bird forward.</p>
             </div>
             <div className="card mt-auto flex flex-col gap-3">
               <button type="button" className="btn btn-primary" onClick={() => requestPlay(save.resumeIndex)}>
@@ -406,7 +414,7 @@ export function CruzingBird() {
               <h1 className="font-display text-3xl">Say it out loud</h1>
               <p>Cruzing Bird listens only while you play. It does not save your voice.</p>
               <p className="text-muted">
-                Your browser may send speech to its own recognition service. Listening works best in Chrome on Android.
+                Keep saying the displayed letter. Each correct call lifts the bird; silence makes it sink. Listening works best in Chrome on Android.
                 On iPhone, say the letter, then tap it if the mic cannot hear you.
               </p>
               {micNote && <p>{micNote}</p>}
@@ -472,7 +480,7 @@ export function CruzingBird() {
               <div className="mx-auto mt-5 h-2 max-w-xs overflow-hidden rounded-full bg-white/30 shadow-inner">
                 <div className="h-full rounded-full bg-gold transition-[width] duration-300" style={{ width: `${((index + 1) / LETTERS.length) * 100}%` }} />
               </div>
-              <p className="mt-2 text-sm font-extrabold tracking-wide text-white drop-shadow">LETTER {index + 1} / {LETTERS.length}</p>
+              <p className="mt-2 text-sm font-extrabold tracking-wide text-white drop-shadow">LETTER {index + 1} / {LETTERS.length} · 3 CALLS TO FLY ON</p>
             </div>
             <p className="mt-3 flex items-center justify-center gap-2 text-center text-ink" aria-live="polite">
               {listener.phase === "listening" && save.settings.input === "voice" && <span className="listen-dot" />}
