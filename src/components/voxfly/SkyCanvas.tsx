@@ -25,6 +25,7 @@ export function SkyCanvas({
   difficulty,
   cheer,
   listening,
+  lift,
   reduced,
   paused,
   failed,
@@ -35,6 +36,7 @@ export function SkyCanvas({
   difficulty: Difficulty;
   cheer: number;
   listening: boolean;
+  lift: boolean;
   reduced: boolean;
   paused: boolean;
   failed: boolean;
@@ -42,7 +44,7 @@ export function SkyCanvas({
   onCrash: () => void;
 }) {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
-  const propsRef = useRef({ mode, difficulty, cheer, listening, reduced, paused, failed, reset, onCrash });
+  const propsRef = useRef({ mode, difficulty, cheer, listening, lift, reduced, paused, failed, reset, onCrash });
   propsRef.current = { mode, difficulty, cheer, listening, reduced, paused, failed, reset, onCrash };
 
   useEffect(() => {
@@ -171,21 +173,20 @@ export function SkyCanvas({
         gateSerial += 1;
       }
       const birdX = width * 0.32;
-      let desired = ambient ? height * 0.46 : height * 0.6;
-      for (const gate of gates) {
-        const screenX = gate.x - cam;
-        if (screenX > birdX - 20) {
-          desired = ambient ? gate.gapY * 0.45 + height * 0.22 : gate.gapY;
-          break;
-        }
+      if (ambient) {
+        const desired = height * 0.46 + Math.sin(time * 1.5) * 10;
+        birdY += (desired - birdY) * Math.min(1, 1.4 * dt);
+        vy = 0;
+      } else {
+        // Voice is the bird's lift: every spoken letter gives an upward burst.
+        // Between calls gravity steadily pulls the bird down.
+        if (props.lift) vy -= 980 * dt;
+        else vy += 430 * dt;
+        vy = Math.max(-330, Math.min(390, vy));
+        birdY += vy * dt;
+        if (birdY < 42) { birdY = 42; vy = Math.max(0, vy); }
+        if (birdY > height - 48) { birdY = height - 48; vy = Math.min(0, vy); }
       }
-      if (!props.reduced && !ambient) desired += Math.sin(time * 2.1) * (easy ? 8 : 14);
-      birdY += (desired - birdY) * Math.min(1, (ambient ? 1.4 : 2.4) * dt);
-      birdY += vy * dt;
-      vy *= Math.max(0, 1 - 2.4 * dt);
-      const margin = 36;
-      if (birdY < margin) birdY = margin;
-      if (birdY > height - margin) birdY = height - margin;
 
       for (const gate of gates) {
         const screenX = gate.x - cam;
