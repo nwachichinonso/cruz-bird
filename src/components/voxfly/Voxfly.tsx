@@ -366,6 +366,7 @@ export function CruzingBird() {
         paused={screen === "play" && paused}
         failed={failed}
         reset={runReset}
+        onHit={() => failRun()}
         onCrash={() => setScreen("crashed")}
       />
       <div className="overlay pointer-events-none absolute inset-0 flex flex-col">
