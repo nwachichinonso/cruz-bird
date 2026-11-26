@@ -31,7 +31,6 @@ export function CruzingBird() {
   const [index, setIndex] = useState(0);
   const [paused, setPaused] = useState(false);
   const [failed, setFailed] = useState(false);
-  const [voiceHits, setVoiceHits] = useState(0);
   const [runReset, setRunReset] = useState(0);
   const [note, setNote] = useState("");
   const [cheer, setCheer] = useState(0);
@@ -51,7 +50,6 @@ export function CruzingBird() {
   const gateNext = useRef<"parent" | "extra">("parent");
   const advanceLock = useRef(false);
   const failureLock = useRef(false);
-  const voiceHitsRef = useRef(0);
   const letterTimerRef = useRef<number | null>(null);
   const letterTickRef = useRef<number | null>(null);
   const letterStartedRef = useRef(false);
@@ -175,8 +173,6 @@ export function CruzingBird() {
     failureLock.current = false;
     letterStartedRef.current = false;
     setLetterSeconds(0);
-    voiceHitsRef.current = 0;
-    setVoiceHits(0);
     indexRef.current = next;
     setIndex(next);
     setNote(`Yes! Now ${LETTERS[next].id}`);
@@ -797,7 +793,6 @@ export function CruzingBird() {
 }
 
 function LetterMark({ id, example }: { id: string; example: string }) {
-  const hue = (id.charCodeAt(0) * 37) % 360;
   return (
     <div key={id} className="letter-character letter-pop" role="img" aria-label={`Cartoon letter ${id}, as in ${example}`}>
       <svg viewBox="0 0 260 190" className="mx-auto block h-44 w-full max-w-[18rem] overflow-visible" aria-hidden="true">
