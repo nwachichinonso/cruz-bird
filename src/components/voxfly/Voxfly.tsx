@@ -14,7 +14,7 @@ import {
 import { useLetterListener } from "@/game/useLetterListener";
 import { SkyCanvas } from "@/components/voxfly/SkyCanvas";
 
-type Screen = "splash" | "menu" | "setup" | "test" | "play" | "done" | "progress" | "gate" | "parent" | "break";
+type Screen = "splash" | "menu" | "setup" | "test" | "play" | "crashed" | "done" | "progress" | "gate" | "parent" | "break";
 
 function minutesLabel(ms: number): string {
   const total = Math.max(0, Math.floor(ms / 1000));
@@ -30,6 +30,8 @@ export function CruzingBird() {
   const [screen, setScreen] = useState<Screen>("splash");
   const [index, setIndex] = useState(0);
   const [paused, setPaused] = useState(false);
+  const [failed, setFailed] = useState(false);
+  const [runReset, setRunReset] = useState(0);
   const [note, setNote] = useState("");
   const [cheer, setCheer] = useState(0);
   const [assist, setAssist] = useState(false);
@@ -44,11 +46,18 @@ export function CruzingBird() {
 
   const indexRef = useRef(0);
   const screenRef = useRef<Screen>("splash");
+  const pausedRef = useRef(false);
   const pendingFrom = useRef(0);
   const gateNext = useRef<"parent" | "extra">("parent");
   const advanceLock = useRef(false);
+  const failureLock = useRef(false);
+  const letterTimerRef = useRef<number | null>(null);
+  const letterTickRef = useRef<number | null>(null);
+  const letterStartedRef = useRef(false);
+  const [letterSeconds, setLetterSeconds] = useState(0);
   indexRef.current = index;
   screenRef.current = screen;
+  pausedRef.current = paused;
 
   useEffect(() => {
     const loaded = loadSave();
@@ -126,7 +135,13 @@ export function CruzingBird() {
   }, [screen, paused, hidden, index, save.settings.input, save.settings.sound, save.settings.coach]);
 
   const score = () => {
-    if (screenRef.current !== "play" || advanceLock.current) return;
+    if (screenRef.current !== "play" || advanceLock.current || failureLock.current) return;
+    if (letterTimerRef.current !== null) window.clearTimeout(letterTimerRef.current);
+    if (letterTickRef.current !== null) window.clearInterval(letterTickRef.current);
+    letterTimerRef.current = null;
+    letterTickRef.current = null;
+    letterStartedRef.current = false;
+    setLetterSeconds(0);
     advanceLock.current = true;
     window.setTimeout(() => {
       advanceLock.current = false;
@@ -157,16 +172,62 @@ export function CruzingBird() {
       return;
     }
     const next = i + 1;
+    failureLock.current = false;
+    letterStartedRef.current = false;
+    setLetterSeconds(0);
     indexRef.current = next;
     setIndex(next);
     setNote(`Yes! Now ${LETTERS[next].id}`);
   };
 
+  const failRun = (heard?: string) => {
+    if (screenRef.current !== "play" || failureLock.current) return;
+    failureLock.current = true;
+    if (letterTimerRef.current !== null) window.clearTimeout(letterTimerRef.current);
+    if (letterTickRef.current !== null) window.clearInterval(letterTickRef.current);
+    letterTimerRef.current = null;
+    letterTickRef.current = null;
+    letterStartedRef.current = false;
+    setLetterSeconds(0);
+    setFailed(true);
+    const id = LETTERS[indexRef.current].id;
+    setNote(heard ? `I heard “${heard.slice(0, 28)}”. The bird is falling!` : `Say ${id} before the bird falls!`);
+    setSave((prev) => {
+      const current = prev.letters[id] ?? { ok: 0, miss: 0 };
+      return { ...prev, resumeIndex: 0, letters: {
+        ...prev.letters,
+        [id]: { ok: Number(current.ok) || 0, miss: (Number(current.miss) || 0) + 1 },
+      }};
+    });
+  };
+
   const scoreRef = useRef(score);
   scoreRef.current = score;
 
+  function startLetterHold() {
+    if (screenRef.current !== "play" || failureLock.current || letterStartedRef.current) return;
+    letterStartedRef.current = true;
+    setLetterSeconds(20);
+    let remaining = 20;
+    letterTickRef.current = window.setInterval(() => {
+      if (pausedRef.current || screenRef.current !== "play") return;
+      remaining -= 1;
+      setLetterSeconds(Math.max(0, remaining));
+      if (remaining <= 0) {
+        if (letterTickRef.current !== null) window.clearInterval(letterTickRef.current);
+        letterTickRef.current = null;
+        letterTimerRef.current = window.setTimeout(() => scoreRef.current(), 0);
+      }
+    }, 1000);
+  }
+
+  useEffect(() => () => {
+    if (letterTimerRef.current !== null) window.clearTimeout(letterTimerRef.current);
+    if (letterTickRef.current !== null) window.clearInterval(letterTickRef.current);
+  }, []);
+
   const voiceOn =
-    save.settings.input === "voice" && !hidden && ((screen === "play" && !paused) || screen === "test");
+    save.settings.input === "voice" && !hidden && ((screen === "play" && !paused && !failed) || screen === "test");
 
   const listener = useLetterListener({
     enabled: voiceOn,
@@ -179,25 +240,21 @@ export function CruzingBird() {
         startPlay(pendingFrom.current);
         return;
       }
-      scoreRef.current();
+      startLetterHold();
     },
     onMiss: (text) => {
       if (screenRef.current !== "play") return;
-      const id = LETTERS[indexRef.current].id;
-      const heard = text.length > 32 ? `${text.slice(0, 32)}…` : text;
-      setNote(`I heard “${heard}”. Try ${id}.`);
-      setSave((prev) => {
-        const current = prev.letters[id] ?? { ok: 0, miss: 0 };
-        return {
-          ...prev,
-          letters: {
-            ...prev.letters,
-            [id]: { ok: Number(current.ok) || 0, miss: (Number(current.miss) || 0) + 1 },
-          },
-        };
-      });
+      const target = LETTERS[indexRef.current].id;
+      setNote(`I heard “${text.slice(0, 24)}”. Keep saying ${target} to stay above the traps.`);
     },
   });
+
+  // In voice mode, sustained silence or failure to recognise the target letter causes a crash.
+  useEffect(() => {
+    if (screen !== "play" || paused || save.settings.input !== "voice" || failureLock.current) return;
+    const timer = window.setTimeout(() => failRun(), 3000);
+    return () => window.clearTimeout(timer);
+  }, [screen, paused, index, listener.voicePulse, save.settings.input]);
 
   useEffect(() => {
     if (screen !== "play" || paused) return;
@@ -215,7 +272,7 @@ export function CruzingBird() {
       if (!canTap) return;
       if (event.key === "Enter" || event.key === " ") {
         event.preventDefault();
-        scoreRef.current();
+        startLetterHold();
       }
     };
     window.addEventListener("keydown", onKey);
@@ -228,6 +285,15 @@ export function CruzingBird() {
     indexRef.current = next;
     setIndex(next);
     setPaused(false);
+    setFailed(false);
+    failureLock.current = false;
+    if (letterTimerRef.current !== null) window.clearTimeout(letterTimerRef.current);
+    if (letterTickRef.current !== null) window.clearInterval(letterTickRef.current);
+    letterTimerRef.current = null;
+    letterTickRef.current = null;
+    letterStartedRef.current = false;
+    setLetterSeconds(0);
+    setRunReset((value) => value + 1);
     setNote("");
     setScreen("play");
     setSave((prev) => ({ ...prev, resumeIndex: next }));
@@ -333,33 +399,40 @@ export function CruzingBird() {
         difficulty={save.settings.difficulty}
         cheer={cheer}
         listening={listener.phase === "listening"}
+        lift={listener.voiceActive}
         reduced={reduced}
         paused={screen === "play" && paused}
+        failed={failed}
+        reset={runReset}
+        onHit={() => failRun()}
+        onCrash={() => setScreen("crashed")}
       />
       <div className="overlay pointer-events-none absolute inset-0 flex flex-col">
         {screen === "splash" && (
           <button type="button" className="pointer-events-auto mt-auto w-full text-left" onClick={() => setScreen("menu")}>
             <div className="card text-center">
               <h1 className="font-display text-6xl tracking-wide">Cruzing Bird</h1>
-              <p className="mt-2 text-lg text-muted">Say it. Fly it. Learn it.</p>
+              <p className="mt-2 text-lg text-muted">KEEP TALKING. KEEP FLYING.</p>
             </div>
           </button>
         )}
 
         {screen === "menu" && (
-          <div className="pointer-events-auto flex h-full flex-col">
-            <div className="flex justify-end">
-              <button type="button" className="icon-btn" onClick={toggleSound} aria-label={save.settings.sound ? "Sound on" : "Sound off"}>
+          <div className="pointer-events-auto flex h-full flex-col items-center justify-between px-4 pb-5 pt-5 sm:px-8 sm:pb-8">
+            <div className="flex w-full justify-end">
+              <button type="button" className="icon-btn rounded-full border-2 border-white/80 bg-white/80 text-slate-700 shadow-lg backdrop-blur" onClick={toggleSound} aria-label={save.settings.sound ? "Sound on" : "Sound off"}>
                 {save.settings.sound ? <Volume2 size={22} /> : <VolumeX size={22} />}
               </button>
             </div>
-            <div className="card mt-4">
-              <h1 className="font-display text-5xl tracking-wide">Cruzing Bird</h1>
-              <p className="mt-1 text-muted">Say the letter. The bird keeps flying.</p>
+
+            <div className="mx-auto mt-2 w-full max-w-md rounded-[2rem] border-4 border-white/90 bg-white/85 px-5 py-4 text-center shadow-[0_12px_0_rgba(39,105,150,0.16),0_18px_40px_rgba(28,73,112,0.18)] backdrop-blur-sm">
+              <h1 className="font-display text-4xl font-black tracking-wide text-sky-700 drop-shadow-sm sm:text-5xl">Cruzing Bird</h1>
+              <p className="mt-2 text-base font-extrabold text-slate-600 sm:text-lg">Say the letter. The bird keeps flying.</p>
             </div>
-            <div className="card mt-auto flex flex-col gap-3">
-              <button type="button" className="btn btn-primary" onClick={() => requestPlay(save.resumeIndex)}>
-                <Play size={22} />
+
+            <div className="mt-auto flex w-full max-w-md flex-col gap-3">
+              <button type="button" className="btn btn-primary min-h-16 justify-center rounded-2xl border-b-4 border-sky-950/25 bg-sky-700 text-xl font-black shadow-xl" onClick={() => requestPlay(save.resumeIndex)}>
+                <Play size={24} fill="currentColor" />
                 {save.resumeIndex > 0 ? `Continue from ${LETTERS[save.resumeIndex].id}` : "Play"}
               </button>
               {save.resumeIndex > 0 && (
@@ -368,26 +441,25 @@ export function CruzingBird() {
                 </button>
               )}
               <div className="grid grid-cols-2 gap-3">
-                <button type="button" className="btn btn-ghost" onClick={() => setScreen("progress")}>
-                  <Star size={18} />
+                <button type="button" className="btn btn-ghost min-h-14 justify-center rounded-2xl border-2 border-white bg-white/90 font-extrabold text-sky-800 shadow-lg" onClick={() => setScreen("progress")}>
+                  <Star size={19} fill="currentColor" />
                   Letters
                 </button>
-                <button type="button" className="btn btn-ghost" onClick={() => openGate("parent")}>
-                  <Shield size={18} />
+                <button type="button" className="btn btn-ghost min-h-14 justify-center rounded-2xl border-2 border-white bg-white/90 font-extrabold text-slate-700 shadow-lg" onClick={() => openGate("parent")}>
+                  <Shield size={19} />
                   Grown-ups
                 </button>
               </div>
             </div>
           </div>
         )}
-
         {screen === "setup" && (
           <div className="pointer-events-auto mt-auto">
             <div className="card flex flex-col gap-3">
               <h1 className="font-display text-3xl">Say it out loud</h1>
               <p>Cruzing Bird listens only while you play. It does not save your voice.</p>
               <p className="text-muted">
-                Your browser may send speech to its own recognition service. Listening works best in Chrome on Android.
+                Keep saying the displayed letter. Each correct call lifts the bird; silence makes it sink. Listening works best in Chrome on Android.
                 On iPhone, say the letter, then tap it if the mic cannot hear you.
               </p>
               {micNote && <p>{micNote}</p>}
@@ -448,20 +520,20 @@ export function CruzingBird() {
                 <Volume2 size={22} />
               </button>
             </div>
-            <div className="card mt-3 text-center">
+            <div className="letter-hud mt-5 text-center">
               <LetterMark id={letter.id} example={letter.example} />
-              <div className="mt-3 h-2 overflow-hidden rounded-full bg-ink/10">
-                <div className="h-full bg-gold" style={{ width: `${(index / LETTERS.length) * 100}%` }} />
+              <div className="mx-auto mt-5 h-2 max-w-xs overflow-hidden rounded-full bg-white/30 shadow-inner">
+                <div className="h-full rounded-full bg-gold transition-[width] duration-300" style={{ width: `${((index + 1) / LETTERS.length) * 100}%` }} />
               </div>
-              <p className="mt-2 text-muted">Letter {index + 1} of {LETTERS.length}</p>
+              <p className="mt-2 text-sm font-extrabold tracking-wide text-white drop-shadow">LETTER {index + 1} / {LETTERS.length} · {letterSeconds > 0 ? `NEXT LETTER IN ${letterSeconds}S` : "SAY THE LETTER TO START"}</p>
             </div>
             <p className="mt-3 flex items-center justify-center gap-2 text-center text-ink" aria-live="polite">
               {listener.phase === "listening" && save.settings.input === "voice" && <span className="listen-dot" />}
               {status}
             </p>
             {showTap && (
-              <button type="button" className="btn btn-gold pointer-events-auto mt-auto" onClick={() => scoreRef.current()}>
-                I said {letter.id}
+              <button type="button" className="btn btn-gold pointer-events-auto mt-auto" onClick={startLetterHold}>
+                I said {letter.id} — start 20 seconds
               </button>
             )}
           </div>
@@ -500,6 +572,22 @@ export function CruzingBird() {
               >
                 <House size={18} />
                 Exit
+              </button>
+            </div>
+          </div>
+        )}
+
+        {screen === "crashed" && (
+          <div className="pointer-events-auto absolute inset-0 flex items-end bg-slate-950/20 px-4 pb-5">
+            <div className="crash-panel w-full text-center">
+              <div className="text-5xl" aria-hidden="true">💥</div>
+              <h1 className="mt-2 font-display text-4xl">Bird down!</h1>
+              <p className="mt-2 text-muted">That letter got away. Let’s start again from A.</p>
+              <button type="button" className="btn btn-primary mt-5" onClick={() => startPlay(0)}>
+                <RotateCcw size={20} /> Start again
+              </button>
+              <button type="button" className="btn btn-ghost mt-2" onClick={() => setScreen("menu")}>
+                <House size={18} /> Main menu
               </button>
             </div>
           </div>
@@ -721,11 +809,37 @@ export function CruzingBird() {
 
 function LetterMark({ id, example }: { id: string; example: string }) {
   return (
-    <>
-      <h1 key={id} className="letter-pop font-display text-8xl leading-none">
-        {id}
-      </h1>
-      <p className="mt-1 text-muted">as in {example}</p>
-    </>
+    <div key={id} className="letter-character letter-pop" role="img" aria-label={`Cartoon letter ${id}, as in ${example}`}>
+      <svg viewBox="0 0 260 190" className="mx-auto block h-44 w-full max-w-[18rem] overflow-visible" aria-hidden="true">
+        <defs>
+          <linearGradient id={`letter-fill-${id}`} x1="0" y1="0" x2="0.8" y2="1">
+            <stop offset="0%" stopColor="#fff36b" />
+            <stop offset="48%" stopColor="#ffb51b" />
+            <stop offset="100%" stopColor="#ed4c18" />
+          </linearGradient>
+          <filter id={`letter-shadow-${id}`} x="-30%" y="-30%" width="160%" height="170%">
+            <feDropShadow dx="0" dy="9" stdDeviation="4" floodColor="#16323a" floodOpacity=".28" />
+          </filter>
+        </defs>
+        <g filter={`url(#letter-shadow-${id})`}>
+          <text x="130" y="143" textAnchor="middle" fontFamily="Fredoka, Nunito, system-ui, sans-serif" fontSize="154" fontWeight="900" fill="#8e2e17" stroke="#6d281c" strokeWidth="25" strokeLinejoin="round" paintOrder="stroke">{id}</text>
+          <text x="130" y="143" textAnchor="middle" fontFamily="Fredoka, Nunito, system-ui, sans-serif" fontSize="154" fontWeight="900" fill="#f36a19" stroke="#fff9ee" strokeWidth="13" strokeLinejoin="round" paintOrder="stroke">{id}</text>
+          <text x="130" y="143" textAnchor="middle" fontFamily="Fredoka, Nunito, system-ui, sans-serif" fontSize="154" fontWeight="900" fill={`url(#letter-fill-${id})`} stroke="#bd4c17" strokeWidth="4" strokeLinejoin="round" paintOrder="stroke">{id}</text>
+          <path d="M174 65 Q185 54 195 65" fill="none" stroke="#16323a" strokeWidth="5" strokeLinecap="round" />
+          <ellipse cx="174" cy="83" rx="8" ry="11" fill="#fff" stroke="#16323a" strokeWidth="3" />
+          <ellipse cx="197" cy="83" rx="8" ry="11" fill="#fff" stroke="#16323a" strokeWidth="3" />
+          <circle cx="176" cy="85" r="3.6" fill="#16323a" />
+          <circle cx="199" cy="85" r="3.6" fill="#16323a" />
+          <path d="M181 105 Q187 113 194 104" fill="none" stroke="#16323a" strokeWidth="4" strokeLinecap="round" />
+          <ellipse cx="163" cy="101" rx="7" ry="4" fill="#ff8b8b" opacity=".72" />
+          <ellipse cx="207" cy="101" rx="7" ry="4" fill="#ff8b8b" opacity=".72" />
+        </g>
+        <path d="M48 128 Q34 138 30 151" fill="none" stroke="#fff9ee" strokeWidth="7" strokeLinecap="round" />
+        <circle cx="28" cy="154" r="8" fill="#ffca55" stroke="#fff9ee" strokeWidth="4" />
+        <path d="M210 135 Q225 142 230 153" fill="none" stroke="#fff9ee" strokeWidth="7" strokeLinecap="round" />
+        <circle cx="232" cy="157" r="8" fill="#ffca55" stroke="#fff9ee" strokeWidth="4" />
+      </svg>
+      <p className="mt-1 font-display text-lg font-bold text-white drop-shadow">as in {example}</p>
+    </div>
   );
 }

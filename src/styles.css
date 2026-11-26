@@ -50,7 +50,7 @@
   .stage {
     position: relative;
     width: 100%;
-    max-width: 32rem;
+    max-width: none;
     height: 100dvh;
     margin: 0 auto;
     overflow: hidden;
@@ -195,4 +195,92 @@
   .listen-dot {
     animation: none;
   }
+}
+
+
+/* Runner-style floating controls and transparent cartoon alphabet character. */
+@layer components {
+  .letter-hud {
+    pointer-events: none;
+    filter: drop-shadow(0 5px 18px rgb(18 54 72 / 18%));
+  }
+  .letter-character {
+    display: grid;
+    justify-items: center;
+    min-height: 12rem;
+    background: transparent;
+  }
+  .letter-character svg { overflow: visible; }
+  .crash-panel {
+    border: 1px solid rgb(255 255 255 / 50%);
+    border-radius: 2rem;
+    padding: 1.5rem;
+    background: rgb(255 250 239 / 96%);
+    color: var(--color-ink);
+    box-shadow: 0 24px 70px rgb(13 39 50 / 25%);
+    backdrop-filter: blur(18px);
+  }
+  .icon-btn {
+    border: 1px solid rgb(255 255 255 / 60%);
+    background: rgb(255 250 239 / 82%);
+    box-shadow: 0 8px 24px rgb(13 39 50 / 12%);
+    backdrop-filter: blur(12px);
+    transition: transform 160ms ease, background 160ms ease;
+  }
+  .icon-btn:active:not(:disabled) { transform: translateY(2px) scale(.96); }
+}
+@media (max-width: 380px) {
+  .letter-character svg { height: 9.5rem; }
+  .letter-character { min-height: 10rem; }
+}
+
+/* Full-screen arcade presentation: layered world, floating glass HUD and a clean letter mascot. */
+.stage { isolation: isolate; }
+.stage > canvas { z-index: 0; }
+.stage > .overlay { z-index: 2; }
+.letter-hud {
+  width: min(100%, 34rem);
+  align-self: center;
+  margin-top: clamp(1.2rem, 5vh, 3.5rem);
+  padding: .35rem 1rem .8rem;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+}
+.letter-character {
+  min-height: clamp(9rem, 24vh, 14rem);
+  background: none !important;
+  filter: drop-shadow(0 10px 15px rgb(12 48 61 / 20%));
+}
+.letter-character svg {
+  height: clamp(9.5rem, 24vh, 14rem);
+  max-width: min(88vw, 20rem);
+  overflow: visible;
+}
+.letter-character p {
+  color: #fff;
+  text-shadow: 0 2px 4px rgb(13 45 58 / 65%), 0 0 14px rgb(13 45 58 / 45%);
+}
+.letter-hud > div:not(.letter-character) {
+  max-width: min(76vw, 24rem);
+}
+.letter-hud > p {
+  letter-spacing: .14em;
+  font-size: .72rem;
+}
+.overlay > div > .card {
+  box-shadow: 0 18px 55px rgb(10 45 62 / 22%);
+  border: 1px solid rgb(255 255 255 / 65%);
+  backdrop-filter: blur(16px);
+}
+.overlay .icon-btn {
+  width: 3.25rem;
+  height: 3.25rem;
+  color: #173b49;
+  background: linear-gradient(145deg, rgb(255 255 255 / 96%), rgb(220 244 250 / 82%));
+  box-shadow: 0 8px 22px rgb(11 54 69 / 22%);
+}
+@media (min-width: 700px) {
+  .overlay { padding-left: clamp(1.5rem, 4vw, 4rem); padding-right: clamp(1.5rem, 4vw, 4rem); }
+  .letter-hud { margin-top: 2vh; }
 }

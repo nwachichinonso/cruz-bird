@@ -13,10 +13,10 @@ const SUN = "#e6a312";
 const CLOUD = "#fffdf8";
 const HILL_FAR = "#c5e6d2";
 const HILL_NEAR = "#3e9a62";
-const BIRD = "#128f84";
-const BIRD_DEEP = "#0c6d64";
-const BELLY = "#fff6ea";
-const BEAK = "#e36a45";
+const BIRD = "#69c9f4";
+const BIRD_DEEP = "#267db8";
+const BELLY = "#f4fbff";
+const BEAK = "#f28b32";
 const INK = "#16323a";
 const GOLD = "#e6a312";
 
@@ -25,19 +25,29 @@ export function SkyCanvas({
   difficulty,
   cheer,
   listening,
+  lift,
   reduced,
   paused,
+  failed,
+  reset,
+  onCrash,
+  onHit,
 }: {
   mode: Mode;
   difficulty: Difficulty;
   cheer: number;
   listening: boolean;
+  lift: boolean;
   reduced: boolean;
   paused: boolean;
+  failed: boolean;
+  reset: number;
+  onCrash: () => void;
+  onHit: () => void;
 }) {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
-  const propsRef = useRef({ mode, difficulty, cheer, listening, reduced, paused });
-  propsRef.current = { mode, difficulty, cheer, listening, reduced, paused };
+  const propsRef = useRef({ mode, difficulty, cheer, listening, lift, reduced, paused, failed, reset, onCrash, onHit });
+  propsRef.current = { mode, difficulty, cheer, listening, lift, reduced, paused, failed, reset, onCrash, onHit };
 
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -57,6 +67,11 @@ export function SkyCanvas({
     let vy = 0;
     let ready = false;
     let lastCheer = propsRef.current.cheer;
+    let lastReset = propsRef.current.reset;
+    let wasFailed = false;
+    let crashAt: number | null = null;
+    let crashSent = false;
+    let trapHit = false;
     const gates: Gate[] = [];
     const particles: Particle[] = [];
     let gateSerial = 0;
@@ -110,13 +125,44 @@ export function SkyCanvas({
       }
     };
 
+    const updateParticles = (dt: number) => {
+      for (let i = particles.length - 1; i >= 0; i--) {
+        const p = particles[i];
+        p.life -= dt;
+        p.x += p.vx * dt;
+        p.y += p.vy * dt;
+        p.vy += 40 * dt;
+        if (p.life <= 0) particles.splice(i, 1);
+      }
+    };
+
     const update = (dt: number) => {
       const props = propsRef.current;
+      if (props.reset !== lastReset) {
+        lastReset = props.reset;
+        cam = 0; time = 0; birdY = height * 0.42; vy = 0; gateSerial = 0;
+        crashAt = null; crashSent = false; wasFailed = false; trapHit = false;
+        seedGates();
+      }
       if (props.cheer !== lastCheer) {
         lastCheer = props.cheer;
         vy = -150;
         spawnParticles(width * 0.32, birdY);
       }
+      if (props.failed) {
+        if (!wasFailed) { wasFailed = true; crashAt = null; vy = Math.max(90, vy); }
+        time += dt;
+        vy += 980 * dt;
+        birdY += vy * dt;
+        if (birdY >= height - 46) {
+          birdY = height - 46; vy = 0;
+          if (crashAt === null) { crashAt = time; spawnParticles(width * 0.32, birdY); }
+          if (!crashSent && time - crashAt > 0.55) { crashSent = true; propsRef.current.onCrash(); }
+        }
+        updateParticles(dt);
+        return;
+      }
+      wasFailed = false;
       const ambient = props.mode === "ambient";
       const easy = props.difficulty === "easy";
       const speed = ambient ? 28 : easy ? 78 : 118;
@@ -130,43 +176,36 @@ export function SkyCanvas({
         gateSerial += 1;
       }
       const birdX = width * 0.32;
-      let desired = ambient ? height * 0.46 : height * 0.6;
-      for (const gate of gates) {
-        const screenX = gate.x - cam;
-        if (screenX > birdX - 20) {
-          desired = ambient ? gate.gapY * 0.45 + height * 0.22 : gate.gapY;
-          break;
-        }
+      if (ambient) {
+        const desired = height * 0.46 + Math.sin(time * 1.5) * 10;
+        birdY += (desired - birdY) * Math.min(1, 1.4 * dt);
+        vy = 0;
+      } else {
+        // Voice is the bird's lift: every spoken letter gives an upward burst.
+        // Between calls gravity steadily pulls the bird down.
+        if (props.lift) vy -= 620 * dt;
+        else vy += 160 * dt;
+        vy = Math.max(-260, Math.min(300, vy));
+        birdY += vy * dt;
+        if (birdY < 42) { birdY = 42; vy = Math.max(0, vy); }
+        if (birdY > height - 48) { birdY = height - 48; vy = Math.min(0, vy); }
       }
-      if (!props.reduced && !ambient) desired += Math.sin(time * 2.1) * (easy ? 8 : 14);
-      birdY += (desired - birdY) * Math.min(1, (ambient ? 1.4 : 2.4) * dt);
-      birdY += vy * dt;
-      vy *= Math.max(0, 1 - 2.4 * dt);
-      const margin = 36;
-      if (birdY < margin) birdY = margin;
-      if (birdY > height - margin) birdY = height - margin;
 
       for (const gate of gates) {
         const screenX = gate.x - cam;
-        const half = ambient ? height * 0.42 : height * (easy ? 0.3 : 0.24);
-        const near = Math.abs(screenX - birdX) < 36;
-        const outside = birdY < gate.gapY - half || birdY > gate.gapY + half;
-        if (!ambient && near && outside) {
-          birdY += (gate.gapY - birdY) * Math.min(1, 8 * dt);
-          gate.glow = 1;
+        const near = Math.abs(screenX - birdX) < 34;
+        // Traps sit on the ground. The bird must actively stay above them.
+        const trapTop = height - 112;
+        const birdBottom = birdY + 30;
+        if (!ambient && near && birdBottom > trapTop && !trapHit) {
+          trapHit = true;
+          propsRef.current.onHit();
         }
-        if (props.cheer === lastCheer && near && vy < -40) gate.glow = 1;
+        if (near && vy < -40) gate.glow = 1;
         gate.glow = Math.max(0, gate.glow - dt * 0.8);
       }
 
-      for (let i = particles.length - 1; i >= 0; i--) {
-        const p = particles[i];
-        p.life -= dt;
-        p.x += p.vx * dt;
-        p.y += p.vy * dt;
-        p.vy += 40 * dt;
-        if (p.life <= 0) particles.splice(i, 1);
-      }
+      updateParticles(dt);
     };
 
     const puff = (x: number, y: number, scale: number) => {
@@ -179,39 +218,42 @@ export function SkyCanvas({
 
     const drawGates = () => {
       const ambient = propsRef.current.mode === "ambient";
-      const easy = propsRef.current.difficulty === "easy";
-      const half = ambient ? height * 0.42 : height * (easy ? 0.3 : 0.24);
-      for (const gate of gates) {
-        const x = gate.x - cam;
-        if (x < -80 || x > width + 80) continue;
-        ctx.fillStyle = gate.glow > 0.05 ? GOLD : CLOUD;
-        ctx.globalAlpha = ambient ? 0.55 : 0.95;
-        let y = -10;
-        while (y < gate.gapY - half) {
-          puff(x, y, 1.15);
-          y += 28;
-        }
-        y = gate.gapY + half;
-        while (y < height + 20) {
-          puff(x, y, 1.15);
-          y += 28;
-        }
-        ctx.globalAlpha = 0.85;
-        ctx.strokeStyle = gate.glow > 0.05 ? GOLD : "rgba(22,50,58,0.18)";
-        ctx.lineWidth = 3;
+      for (const trap of gates) {
+        const x = trap.x - cam;
+        if (x < -90 || x > width + 90) continue;
+        const base = height - 30;
+        const spikeWidth = 30;
+        const count = 3;
+        ctx.save();
+        ctx.globalAlpha = ambient ? 0.5 : 1;
+        // Heavy hazard base with repeated sharp spikes: a visible ground trap.
+        ctx.fillStyle = trap.glow > 0.05 ? "#ffb02e" : "#b9343c";
         ctx.beginPath();
-        ctx.arc(x, gate.gapY, 22, 0, Math.PI * 2);
-        ctx.stroke();
-        ctx.globalAlpha = 1;
+        ctx.roundRect(x - 48, base - 12, 96, 18, 7);
+        ctx.fill();
+        ctx.fillStyle = "#f7f1df";
+        ctx.strokeStyle = "#7f2430";
+        ctx.lineWidth = 2;
+        for (let i = 0; i < count; i++) {
+          const sx = x - 42 + i * spikeWidth;
+          ctx.beginPath();
+          ctx.moveTo(sx, base - 10);
+          ctx.lineTo(sx + spikeWidth / 2, base - 76);
+          ctx.lineTo(sx + spikeWidth, base - 10);
+          ctx.closePath();
+          ctx.fill();
+          ctx.stroke();
+        }
+        ctx.restore();
       }
     };
-
     const drawBird = () => {
       const flap = propsRef.current.reduced ? 0.2 : Math.sin(time * (vy < -20 ? 14 : 7));
       const squash = 1 - Math.min(0.12, Math.abs(vy) / 900);
       const stretch = 1 + Math.min(0.08, Math.abs(vy) / 1100);
       ctx.save();
       ctx.translate(width * 0.32, birdY);
+      if (propsRef.current.failed) ctx.rotate(0.48);
       ctx.scale(2.05 * stretch, 2.05 * squash);
       ctx.fillStyle = "rgba(22,50,58,0.12)";
       ctx.beginPath();
@@ -226,8 +268,21 @@ export function SkyCanvas({
       ctx.restore();
       ctx.fillStyle = BIRD;
       ctx.beginPath();
-      ctx.ellipse(0, 0, 30, 22, 0, 0, Math.PI * 2);
+      ctx.ellipse(0, 0, 30, 24, 0, 0, Math.PI * 2);
       ctx.fill();
+      // Soft feather tufts and layered wing detail inspired by the blue reference bird.
+      ctx.fillStyle = "#9be0ff";
+      for (let i = 0; i < 7; i++) {
+        ctx.beginPath();
+        ctx.ellipse(-17 + i * 4, -19 - (i % 3) * 2, 5, 11, -0.45 + i * 0.12, 0, Math.PI * 2);
+        ctx.fill();
+      }
+      ctx.fillStyle = "#3f9bd0";
+      for (let i = 0; i < 4; i++) {
+        ctx.beginPath();
+        ctx.ellipse(-17 + i * 5, 7 + (i % 2) * 4, 7, 3, -0.35, 0, Math.PI * 2);
+        ctx.fill();
+      }
       ctx.fillStyle = BELLY;
       ctx.beginPath();
       ctx.ellipse(6, 5, 16, 12, 0, 0, Math.PI * 2);
@@ -236,14 +291,30 @@ export function SkyCanvas({
       ctx.beginPath();
       ctx.ellipse(2, 12, 12, 4.5, 0.1, 0, Math.PI * 2);
       ctx.fill();
+      // Big expressive eyes behind the signature round glasses.
+      ctx.fillStyle = "#ffffff";
+      ctx.beginPath();
+      ctx.ellipse(8, -5, 8, 9, 0, 0, Math.PI * 2);
+      ctx.ellipse(23, -5, 7, 9, 0, 0, Math.PI * 2);
+      ctx.fill();
       ctx.fillStyle = INK;
       ctx.beginPath();
-      ctx.arc(12, -4, 5, 0, Math.PI * 2);
+      ctx.arc(10, -4, 4.3, 0, Math.PI * 2);
+      ctx.arc(24, -4, 4.1, 0, Math.PI * 2);
       ctx.fill();
       ctx.fillStyle = "#ffffff";
       ctx.beginPath();
-      ctx.arc(13.6, -5.4, 1.7, 0, Math.PI * 2);
+      ctx.arc(11.5, -5.5, 1.6, 0, Math.PI * 2);
+      ctx.arc(25.5, -5.5, 1.5, 0, Math.PI * 2);
       ctx.fill();
+      ctx.strokeStyle = "#172c49";
+      ctx.lineWidth = 2.5;
+      ctx.beginPath();
+      ctx.roundRect(0, -15, 17, 20, 6);
+      ctx.roundRect(17, -15, 15, 20, 6);
+      ctx.moveTo(17, -7);
+      ctx.lineTo(18, -7);
+      ctx.stroke();
       ctx.fillStyle = BEAK;
       ctx.beginPath();
       ctx.moveTo(24, -2);
@@ -267,6 +338,136 @@ export function SkyCanvas({
       ctx.restore();
     };
 
+    const drawCity = () => {
+      const base = height * 0.72;
+      for (let i = 0; i < 11; i++) {
+        const cycle = width + 180;
+        const raw = (i * 112 - cam * 0.22) % cycle;
+        const x = (raw + cycle) % cycle - 70;
+        const w = 54 + (i % 3) * 18;
+        const h = 85 + (i % 4) * 25;
+        const facade = ctx.createLinearGradient(x, base - h, x + w, base);
+        facade.addColorStop(0, i % 2 ? "#7db8b9" : "#9c9580");
+        facade.addColorStop(0.55, i % 2 ? "#4d8294" : "#6b7580");
+        facade.addColorStop(1, "#344d5c");
+        ctx.globalAlpha = 0.92;
+        ctx.fillStyle = facade;
+        ctx.fillRect(x, base - h, w, h);
+        // Roofline and wall shadow give the buildings depth.
+        ctx.fillStyle = "#394e59";
+        ctx.fillRect(x - 3, base - h - 5, w + 6, 7);
+        ctx.fillStyle = "#f3dca0";
+        for (let wy = base - h + 14; wy < base - 12; wy += 19) {
+          for (let wx = x + 10; wx < x + w - 5; wx += 17) {
+            ctx.fillRect(wx, wy, 7, 9);
+            ctx.fillStyle = "rgba(30,45,55,0.35)";
+            ctx.fillRect(wx + 7, wy, 2, 9);
+            ctx.fillStyle = "#f3dca0";
+          }
+        }
+      }
+      ctx.globalAlpha = 1;
+    };
+
+    const drawRunway = () => {
+      const horizon = height * 0.68;
+      // Ground and track bed
+      const ground = ctx.createLinearGradient(0, horizon, 0, height);
+      ground.addColorStop(0, "#537f47");
+      ground.addColorStop(1, "#274638");
+      ctx.fillStyle = ground;
+      ctx.fillRect(0, horizon, width, height - horizon);
+
+      const trackTop = width * 0.045;
+      const trackBottom = width * 0.42;
+      ctx.fillStyle = "#453e38";
+      ctx.beginPath();
+      ctx.moveTo(width / 2 - trackTop, horizon);
+      ctx.lineTo(width / 2 + trackTop, horizon);
+      ctx.lineTo(width / 2 + trackBottom, height);
+      ctx.lineTo(width / 2 - trackBottom, height);
+      ctx.closePath();
+      ctx.fill();
+
+      // Gravel flecks along the ballast.
+      for (let i = 0; i < 100; i++) {
+        const t = ((i * 0.137 + cam * 0.002) % 1);
+        const y = horizon + (height - horizon) * t * t;
+        const spread = width * (0.06 + 0.36 * t);
+        const x = width / 2 + Math.sin(i * 12.37) * spread;
+        ctx.fillStyle = i % 3 === 0 ? "#887e6d" : "#665e54";
+        ctx.globalAlpha = 0.35 + t * 0.45;
+        ctx.fillRect(x, y, 1 + t * 3, 1 + t * 2);
+      }
+      ctx.globalAlpha = 1;
+
+      // Wooden sleepers in perspective.
+      for (let i = 0; i < 18; i++) {
+        const t = ((i / 18 + (cam * 0.0019) % 1) % 1);
+        const y = horizon + (height - horizon) * t * t;
+        const half = 8 + t * width * 0.43;
+        ctx.strokeStyle = "#302b27";
+        ctx.lineWidth = 3 + t * 16;
+        ctx.beginPath();
+        ctx.moveTo(width / 2 - half, y + 2);
+        ctx.lineTo(width / 2 + half, y + 2);
+        ctx.stroke();
+        ctx.strokeStyle = "#8b6244";
+        ctx.lineWidth = 2 + t * 12;
+        ctx.beginPath();
+        ctx.moveTo(width / 2 - half, y);
+        ctx.lineTo(width / 2 + half, y);
+        ctx.stroke();
+      }
+
+      // Steel rails, with highlights and dark shadows.
+      for (const side of [-1, 1]) {
+        const topX = width * (0.5 + side * 0.035);
+        const bottomX = width * (0.5 + side * 0.34);
+        ctx.strokeStyle = "#25333a";
+        ctx.lineWidth = 6;
+        ctx.beginPath();
+        ctx.moveTo(topX, horizon);
+        ctx.lineTo(bottomX, height);
+        ctx.stroke();
+        ctx.strokeStyle = "#bac8ce";
+        ctx.lineWidth = 3;
+        ctx.beginPath();
+        ctx.moveTo(topX, horizon);
+        ctx.lineTo(bottomX, height);
+        ctx.stroke();
+        ctx.strokeStyle = "#e3edf0";
+        ctx.lineWidth = 1;
+        ctx.beginPath();
+        ctx.moveTo(topX - 1, horizon);
+        ctx.lineTo(bottomX - 3, height);
+        ctx.stroke();
+      }
+
+      // Trackside fence posts, shrinking toward the horizon.
+      for (const side of [-1, 1]) {
+        for (let i = 0; i < 11; i++) {
+          const t = ((i / 11 + (cam * 0.0012) % 1) % 1);
+          const y = horizon + (height - horizon) * t * t;
+          const x = width / 2 + side * (width * (0.19 + 0.32 * t));
+          const h = 8 + t * 42;
+          ctx.fillStyle = "#4d4438";
+          ctx.fillRect(x, y - h, 3 + t * 3, h);
+          if (i < 10) {
+            const t2 = ((i / 11 + (cam * 0.0012) % 1 + 0.09) % 1);
+            const y2 = horizon + (height - horizon) * t2 * t2;
+            const x2 = width / 2 + side * (width * (0.19 + 0.32 * t2));
+            ctx.strokeStyle = "#a28b69";
+            ctx.lineWidth = 1 + t * 3;
+            ctx.beginPath();
+            ctx.moveTo(x, y - h * 0.7);
+            ctx.lineTo(x2, y2 - (8 + t2 * 42) * 0.7);
+            ctx.stroke();
+          }
+        }
+      }
+    };
+
     const drawHills = (base: number, amp: number, color: string, parallax: number) => {
       ctx.fillStyle = color;
       ctx.beginPath();
@@ -278,6 +479,32 @@ export function SkyCanvas({
       ctx.lineTo(width, height);
       ctx.closePath();
       ctx.fill();
+    };
+
+    const drawTreeLine = () => {
+      for (let i = 0; i < 7; i++) {
+        const cycle = width + 250;
+        const rawX = (i * 178 - cam * 0.52) % cycle;
+        const x = (rawX + cycle) % cycle - 90;
+        const scale = 0.58 + (i % 3) * 0.16;
+        const base = height - 26;
+        ctx.save();
+        ctx.translate(x, base);
+        ctx.scale(scale, scale);
+        ctx.fillStyle = "#8b5a3c";
+        ctx.fillRect(-5, -55, 10, 58);
+        ctx.fillStyle = i % 2 ? "#239b72" : "#42b96f";
+        ctx.beginPath();
+        ctx.arc(0, -70, 27, 0, Math.PI * 2);
+        ctx.arc(-19, -57, 19, 0, Math.PI * 2);
+        ctx.arc(19, -57, 19, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.fillStyle = "rgba(255,255,255,0.22)";
+        ctx.beginPath();
+        ctx.arc(-8, -79, 7, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.restore();
+      }
     };
 
     const draw = () => {
@@ -302,9 +529,12 @@ export function SkyCanvas({
       }
       ctx.globalAlpha = 1;
 
+      drawCity();
       drawHills(78, 16, HILL_FAR, 0.25);
-      drawGates();
+      drawTreeLine();
       drawHills(40, 12, HILL_NEAR, 0.45);
+      drawRunway();
+      drawGates();
       drawBird();
 
       for (const p of particles) {
