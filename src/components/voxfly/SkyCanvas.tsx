@@ -346,13 +346,24 @@ export function SkyCanvas({
         const x = (raw + cycle) % cycle - 70;
         const w = 54 + (i % 3) * 18;
         const h = 85 + (i % 4) * 25;
-        ctx.fillStyle = i % 2 ? "#79b9c5" : "#6aa7b8";
-        ctx.globalAlpha = 0.42;
+        const facade = ctx.createLinearGradient(x, base - h, x + w, base);
+        facade.addColorStop(0, i % 2 ? "#7db8b9" : "#9c9580");
+        facade.addColorStop(0.55, i % 2 ? "#4d8294" : "#6b7580");
+        facade.addColorStop(1, "#344d5c");
+        ctx.globalAlpha = 0.92;
+        ctx.fillStyle = facade;
         ctx.fillRect(x, base - h, w, h);
-        ctx.fillStyle = "#fff2bd";
-        ctx.globalAlpha = 0.5;
+        // Roofline and wall shadow give the buildings depth.
+        ctx.fillStyle = "#394e59";
+        ctx.fillRect(x - 3, base - h - 5, w + 6, 7);
+        ctx.fillStyle = "#f3dca0";
         for (let wy = base - h + 14; wy < base - 12; wy += 19) {
-          for (let wx = x + 10; wx < x + w - 5; wx += 17) ctx.fillRect(wx, wy, 6, 8);
+          for (let wx = x + 10; wx < x + w - 5; wx += 17) {
+            ctx.fillRect(wx, wy, 7, 9);
+            ctx.fillStyle = "rgba(30,45,55,0.35)";
+            ctx.fillRect(wx + 7, wy, 2, 9);
+            ctx.fillStyle = "#f3dca0";
+          }
         }
       }
       ctx.globalAlpha = 1;
