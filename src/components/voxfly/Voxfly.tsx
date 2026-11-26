@@ -411,19 +411,21 @@ export function CruzingBird() {
         )}
 
         {screen === "menu" && (
-          <div className="pointer-events-auto flex h-full flex-col">
-            <div className="flex justify-end">
-              <button type="button" className="icon-btn" onClick={toggleSound} aria-label={save.settings.sound ? "Sound on" : "Sound off"}>
+          <div className="pointer-events-auto flex h-full flex-col items-center justify-between px-4 pb-5 pt-5 sm:px-8 sm:pb-8">
+            <div className="flex w-full justify-end">
+              <button type="button" className="icon-btn rounded-full border-2 border-white/80 bg-white/80 text-slate-700 shadow-lg backdrop-blur" onClick={toggleSound} aria-label={save.settings.sound ? "Sound on" : "Sound off"}>
                 {save.settings.sound ? <Volume2 size={22} /> : <VolumeX size={22} />}
               </button>
             </div>
-            <div className="card mt-4">
-              <h1 className="font-display text-5xl tracking-wide">Cruzing Bird</h1>
-              <p className="mt-1 text-muted">Pronounce each letter, then keep flying through obstacles for 20 seconds.</p>
+
+            <div className="mx-auto mt-2 w-full max-w-md rounded-[2rem] border-4 border-white/90 bg-white/85 px-5 py-4 text-center shadow-[0_12px_0_rgba(39,105,150,0.16),0_18px_40px_rgba(28,73,112,0.18)] backdrop-blur-sm">
+              <h1 className="font-display text-4xl font-black tracking-wide text-sky-700 drop-shadow-sm sm:text-5xl">Cruzing Bird</h1>
+              <p className="mt-2 text-base font-extrabold text-slate-600 sm:text-lg">Say the letter. The bird keeps flying.</p>
             </div>
-            <div className="card mt-auto flex flex-col gap-3">
-              <button type="button" className="btn btn-primary" onClick={() => requestPlay(save.resumeIndex)}>
-                <Play size={22} />
+
+            <div className="mt-auto flex w-full max-w-md flex-col gap-3">
+              <button type="button" className="btn btn-primary min-h-16 justify-center rounded-2xl border-b-4 border-sky-950/25 bg-sky-700 text-xl font-black shadow-xl" onClick={() => requestPlay(save.resumeIndex)}>
+                <Play size={24} fill="currentColor" />
                 {save.resumeIndex > 0 ? `Continue from ${LETTERS[save.resumeIndex].id}` : "Play"}
               </button>
               {save.resumeIndex > 0 && (
@@ -432,19 +434,18 @@ export function CruzingBird() {
                 </button>
               )}
               <div className="grid grid-cols-2 gap-3">
-                <button type="button" className="btn btn-ghost" onClick={() => setScreen("progress")}>
-                  <Star size={18} />
+                <button type="button" className="btn btn-ghost min-h-14 justify-center rounded-2xl border-2 border-white bg-white/90 font-extrabold text-sky-800 shadow-lg" onClick={() => setScreen("progress")}>
+                  <Star size={19} fill="currentColor" />
                   Letters
                 </button>
-                <button type="button" className="btn btn-ghost" onClick={() => openGate("parent")}>
-                  <Shield size={18} />
+                <button type="button" className="btn btn-ghost min-h-14 justify-center rounded-2xl border-2 border-white bg-white/90 font-extrabold text-slate-700 shadow-lg" onClick={() => openGate("parent")}>
+                  <Shield size={19} />
                   Grown-ups
                 </button>
               </div>
             </div>
           </div>
         )}
-
         {screen === "setup" && (
           <div className="pointer-events-auto mt-auto">
             <div className="card flex flex-col gap-3">
