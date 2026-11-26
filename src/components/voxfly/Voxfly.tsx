@@ -46,6 +46,7 @@ export function CruzingBird() {
 
   const indexRef = useRef(0);
   const screenRef = useRef<Screen>("splash");
+  const pausedRef = useRef(false);
   const pendingFrom = useRef(0);
   const gateNext = useRef<"parent" | "extra">("parent");
   const advanceLock = useRef(false);
@@ -56,6 +57,7 @@ export function CruzingBird() {
   const [letterSeconds, setLetterSeconds] = useState(0);
   indexRef.current = index;
   screenRef.current = screen;
+  pausedRef.current = paused;
 
   useEffect(() => {
     const loaded = loadSave();
@@ -208,6 +210,7 @@ export function CruzingBird() {
     setLetterSeconds(20);
     let remaining = 20;
     letterTickRef.current = window.setInterval(() => {
+      if (pausedRef.current || screenRef.current !== "play") return;
       remaining -= 1;
       setLetterSeconds(Math.max(0, remaining));
       if (remaining <= 0) {
@@ -277,8 +280,12 @@ export function CruzingBird() {
     setPaused(false);
     setFailed(false);
     failureLock.current = false;
-    voiceHitsRef.current = 0;
-    setVoiceHits(0);
+    if (letterTimerRef.current !== null) window.clearTimeout(letterTimerRef.current);
+    if (letterTickRef.current !== null) window.clearInterval(letterTickRef.current);
+    letterTimerRef.current = null;
+    letterTickRef.current = null;
+    letterStartedRef.current = false;
+    setLetterSeconds(0);
     setRunReset((value) => value + 1);
     setNote("");
     setScreen("play");
