@@ -359,43 +359,101 @@ export function SkyCanvas({
     };
 
     const drawRunway = () => {
-      const horizon = height * 0.77;
-      ctx.fillStyle = "#27835e";
+      const horizon = height * 0.68;
+      // Ground and track bed
+      const ground = ctx.createLinearGradient(0, horizon, 0, height);
+      ground.addColorStop(0, "#537f47");
+      ground.addColorStop(1, "#274638");
+      ctx.fillStyle = ground;
       ctx.fillRect(0, horizon, width, height - horizon);
-      // Perspective railway inspired by the runner reference: sleepers and twin rails
-      // converge toward the horizon while the camera scrolls forward.
-      ctx.fillStyle = "#6b4734";
+
+      const trackTop = width * 0.045;
+      const trackBottom = width * 0.42;
+      ctx.fillStyle = "#453e38";
       ctx.beginPath();
-      ctx.moveTo(width * 0.43, horizon);
-      ctx.lineTo(width * 0.57, horizon);
-      ctx.lineTo(width * 0.94, height);
-      ctx.lineTo(width * 0.06, height);
+      ctx.moveTo(width / 2 - trackTop, horizon);
+      ctx.lineTo(width / 2 + trackTop, horizon);
+      ctx.lineTo(width / 2 + trackBottom, height);
+      ctx.lineTo(width / 2 - trackBottom, height);
       ctx.closePath();
       ctx.fill();
-      for (let i = 0; i < 13; i++) {
-        const t = ((i / 13 + (cam * 0.0016) % 1) % 1);
+
+      // Gravel flecks along the ballast.
+      for (let i = 0; i < 100; i++) {
+        const t = ((i * 0.137 + cam * 0.002) % 1);
         const y = horizon + (height - horizon) * t * t;
-        const half = 4 + t * width * 0.39;
-        ctx.strokeStyle = "#b77a4b";
+        const spread = width * (0.06 + 0.36 * t);
+        const x = width / 2 + Math.sin(i * 12.37) * spread;
+        ctx.fillStyle = i % 3 === 0 ? "#887e6d" : "#665e54";
+        ctx.globalAlpha = 0.35 + t * 0.45;
+        ctx.fillRect(x, y, 1 + t * 3, 1 + t * 2);
+      }
+      ctx.globalAlpha = 1;
+
+      // Wooden sleepers in perspective.
+      for (let i = 0; i < 18; i++) {
+        const t = ((i / 18 + (cam * 0.0019) % 1) % 1);
+        const y = horizon + (height - horizon) * t * t;
+        const half = 8 + t * width * 0.43;
+        ctx.strokeStyle = "#302b27";
+        ctx.lineWidth = 3 + t * 16;
+        ctx.beginPath();
+        ctx.moveTo(width / 2 - half, y + 2);
+        ctx.lineTo(width / 2 + half, y + 2);
+        ctx.stroke();
+        ctx.strokeStyle = "#8b6244";
         ctx.lineWidth = 2 + t * 12;
         ctx.beginPath();
         ctx.moveTo(width / 2 - half, y);
         ctx.lineTo(width / 2 + half, y);
         ctx.stroke();
       }
+
+      // Steel rails, with highlights and dark shadows.
       for (const side of [-1, 1]) {
-        ctx.strokeStyle = "#a9b9c4";
+        const topX = width * (0.5 + side * 0.035);
+        const bottomX = width * (0.5 + side * 0.34);
+        ctx.strokeStyle = "#25333a";
+        ctx.lineWidth = 6;
+        ctx.beginPath();
+        ctx.moveTo(topX, horizon);
+        ctx.lineTo(bottomX, height);
+        ctx.stroke();
+        ctx.strokeStyle = "#bac8ce";
         ctx.lineWidth = 3;
         ctx.beginPath();
-        ctx.moveTo(width * (0.5 + side * 0.035), horizon);
-        ctx.lineTo(width * (0.5 + side * 0.34), height);
+        ctx.moveTo(topX, horizon);
+        ctx.lineTo(bottomX, height);
         ctx.stroke();
-        ctx.strokeStyle = "#526b7c";
-        ctx.lineWidth = 1.2;
+        ctx.strokeStyle = "#e3edf0";
+        ctx.lineWidth = 1;
         ctx.beginPath();
-        ctx.moveTo(width * (0.5 + side * 0.035) - 2, horizon);
-        ctx.lineTo(width * (0.5 + side * 0.34) - 2, height);
+        ctx.moveTo(topX - 1, horizon);
+        ctx.lineTo(bottomX - 3, height);
         ctx.stroke();
+      }
+
+      // Trackside fence posts, shrinking toward the horizon.
+      for (const side of [-1, 1]) {
+        for (let i = 0; i < 11; i++) {
+          const t = ((i / 11 + (cam * 0.0012) % 1) % 1);
+          const y = horizon + (height - horizon) * t * t;
+          const x = width / 2 + side * (width * (0.19 + 0.32 * t));
+          const h = 8 + t * 42;
+          ctx.fillStyle = "#4d4438";
+          ctx.fillRect(x, y - h, 3 + t * 3, h);
+          if (i < 10) {
+            const t2 = ((i / 11 + (cam * 0.0012) % 1 + 0.09) % 1);
+            const y2 = horizon + (height - horizon) * t2 * t2;
+            const x2 = width / 2 + side * (width * (0.19 + 0.32 * t2));
+            ctx.strokeStyle = "#a28b69";
+            ctx.lineWidth = 1 + t * 3;
+            ctx.beginPath();
+            ctx.moveTo(x, y - h * 0.7);
+            ctx.lineTo(x2, y2 - (8 + t2 * 42) * 0.7);
+            ctx.stroke();
+          }
+        }
       }
     };
 
