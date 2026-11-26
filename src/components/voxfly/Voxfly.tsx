@@ -803,15 +803,18 @@ function LetterMark({ id, example }: { id: string; example: string }) {
       <svg viewBox="0 0 260 190" className="mx-auto block h-44 w-full max-w-[18rem] overflow-visible" aria-hidden="true">
         <defs>
           <linearGradient id={`letter-fill-${id}`} x1="0" y1="0" x2="0.8" y2="1">
-            <stop offset="0%" stopColor={`hsl(${hue} 94% 76%)`} />
-            <stop offset="100%" stopColor={`hsl(${(hue + 28) % 360} 82% 48%)`} />
+            <stop offset="0%" stopColor="#fff36b" />
+            <stop offset="48%" stopColor="#ffb51b" />
+            <stop offset="100%" stopColor="#ed4c18" />
           </linearGradient>
           <filter id={`letter-shadow-${id}`} x="-30%" y="-30%" width="160%" height="170%">
             <feDropShadow dx="0" dy="9" stdDeviation="4" floodColor="#16323a" floodOpacity=".28" />
           </filter>
         </defs>
         <g filter={`url(#letter-shadow-${id})`}>
-          <text x="130" y="143" textAnchor="middle" fontFamily="Fredoka, Nunito, system-ui, sans-serif" fontSize="154" fontWeight="700" fill={`url(#letter-fill-${id})`} stroke="#fff9ee" strokeWidth="13" strokeLinejoin="round" paintOrder="stroke">{id}</text>
+          <text x="130" y="143" textAnchor="middle" fontFamily="Fredoka, Nunito, system-ui, sans-serif" fontSize="154" fontWeight="900" fill="#8e2e17" stroke="#6d281c" strokeWidth="25" strokeLinejoin="round" paintOrder="stroke">{id}</text>
+          <text x="130" y="143" textAnchor="middle" fontFamily="Fredoka, Nunito, system-ui, sans-serif" fontSize="154" fontWeight="900" fill="#f36a19" stroke="#fff9ee" strokeWidth="13" strokeLinejoin="round" paintOrder="stroke">{id}</text>
+          <text x="130" y="143" textAnchor="middle" fontFamily="Fredoka, Nunito, system-ui, sans-serif" fontSize="154" fontWeight="900" fill={`url(#letter-fill-${id})`} stroke="#bd4c17" strokeWidth="4" strokeLinejoin="round" paintOrder="stroke">{id}</text>
           <path d="M174 65 Q185 54 195 65" fill="none" stroke="#16323a" strokeWidth="5" strokeLinecap="round" />
           <ellipse cx="174" cy="83" rx="8" ry="11" fill="#fff" stroke="#16323a" strokeWidth="3" />
           <ellipse cx="197" cy="83" rx="8" ry="11" fill="#fff" stroke="#16323a" strokeWidth="3" />
