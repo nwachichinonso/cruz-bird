@@ -249,6 +249,13 @@ export function CruzingBird() {
     },
   });
 
+  // In voice mode, sustained silence or failure to recognise the target letter causes a crash.
+  useEffect(() => {
+    if (screen !== "play" || paused || save.settings.input !== "voice" || failureLock.current) return;
+    const timer = window.setTimeout(() => failRun(), 3000);
+    return () => window.clearTimeout(timer);
+  }, [screen, paused, index, listener.voicePulse, save.settings.input]);
+
   useEffect(() => {
     if (screen !== "play" || paused) return;
     const onKey = (event: KeyboardEvent) => {
