@@ -359,16 +359,12 @@ export function SkyCanvas({
     };
 
     const drawRunway = () => {
-      const horizon = height * 0.79;
-      ctx.fillStyle = "#237e68";
-      ctx.beginPath();
-      ctx.moveTo(0, horizon);
-      ctx.lineTo(width, horizon);
-      ctx.lineTo(width, height);
-      ctx.lineTo(0, height);
-      ctx.closePath();
-      ctx.fill();
-      ctx.fillStyle = "#e8bd76";
+      const horizon = height * 0.77;
+      ctx.fillStyle = "#27835e";
+      ctx.fillRect(0, horizon, width, height - horizon);
+      // Perspective railway inspired by the runner reference: sleepers and twin rails
+      // converge toward the horizon while the camera scrolls forward.
+      ctx.fillStyle = "#6b4734";
       ctx.beginPath();
       ctx.moveTo(width * 0.43, horizon);
       ctx.lineTo(width * 0.57, horizon);
@@ -376,29 +372,29 @@ export function SkyCanvas({
       ctx.lineTo(width * 0.06, height);
       ctx.closePath();
       ctx.fill();
-      ctx.fillStyle = "#3c5361";
-      ctx.beginPath();
-      ctx.moveTo(width * 0.47, horizon);
-      ctx.lineTo(width * 0.53, horizon);
-      ctx.lineTo(width * 0.82, height);
-      ctx.lineTo(width * 0.18, height);
-      ctx.closePath();
-      ctx.fill();
-      ctx.strokeStyle = "#f8e4a7";
-      ctx.lineWidth = 3;
-      ctx.beginPath();
-      ctx.moveTo(width * 0.5, horizon);
-      ctx.lineTo(width * 0.5, height);
-      ctx.stroke();
-      for (let i = 0; i < 7; i++) {
-        const t = ((i / 7 + (cam * 0.0018) % 1) % 1);
+      for (let i = 0; i < 13; i++) {
+        const t = ((i / 13 + (cam * 0.0016) % 1) % 1);
         const y = horizon + (height - horizon) * t * t;
-        const half = 3 + t * width * 0.12;
-        ctx.strokeStyle = "rgba(255,239,190,0.58)";
-        ctx.lineWidth = 1 + t * 3;
+        const half = 4 + t * width * 0.39;
+        ctx.strokeStyle = "#b77a4b";
+        ctx.lineWidth = 2 + t * 12;
         ctx.beginPath();
         ctx.moveTo(width / 2 - half, y);
         ctx.lineTo(width / 2 + half, y);
+        ctx.stroke();
+      }
+      for (const side of [-1, 1]) {
+        ctx.strokeStyle = "#a9b9c4";
+        ctx.lineWidth = 3;
+        ctx.beginPath();
+        ctx.moveTo(width * (0.5 + side * 0.035), horizon);
+        ctx.lineTo(width * (0.5 + side * 0.34), height);
+        ctx.stroke();
+        ctx.strokeStyle = "#526b7c";
+        ctx.lineWidth = 1.2;
+        ctx.beginPath();
+        ctx.moveTo(width * (0.5 + side * 0.035) - 2, horizon);
+        ctx.lineTo(width * (0.5 + side * 0.34) - 2, height);
         ctx.stroke();
       }
     };
