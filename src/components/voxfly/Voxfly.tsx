@@ -212,15 +212,10 @@ export function CruzingBird() {
     },
     onMiss: (text) => {
       if (screenRef.current !== "play") return;
-      failRun(text);
+      const target = LETTERS[indexRef.current].id;
+      setNote(`I heard “${text.slice(0, 24)}”. Keep saying ${target} to stay above the traps.`);
     },
   });
-
-  useEffect(() => {
-    if (screen !== "play" || paused || failed || save.settings.input !== "voice" || listener.phase !== "listening") return;
-    const timer = window.setTimeout(() => failRun(), 2500);
-    return () => window.clearTimeout(timer);
-  }, [screen, paused, failed, index, save.settings.input, listener.phase, listener.voicePulse]);
 
   useEffect(() => {
     if (screen !== "play" || paused) return;
