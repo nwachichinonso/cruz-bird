@@ -31,6 +31,7 @@ export function SkyCanvas({
   failed,
   reset,
   onCrash,
+  onHit,
 }: {
   mode: Mode;
   difficulty: Difficulty;
@@ -42,10 +43,11 @@ export function SkyCanvas({
   failed: boolean;
   reset: number;
   onCrash: () => void;
+  onHit: () => void;
 }) {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
-  const propsRef = useRef({ mode, difficulty, cheer, listening, lift, reduced, paused, failed, reset, onCrash });
-  propsRef.current = { mode, difficulty, cheer, listening, lift, reduced, paused, failed, reset, onCrash };
+  const propsRef = useRef({ mode, difficulty, cheer, listening, lift, reduced, paused, failed, reset, onCrash, onHit });
+  propsRef.current = { mode, difficulty, cheer, listening, lift, reduced, paused, failed, reset, onCrash, onHit };
 
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -69,6 +71,7 @@ export function SkyCanvas({
     let wasFailed = false;
     let crashAt: number | null = null;
     let crashSent = false;
+    let trapHit = false;
     const gates: Gate[] = [];
     const particles: Particle[] = [];
     let gateSerial = 0;
@@ -138,7 +141,7 @@ export function SkyCanvas({
       if (props.reset !== lastReset) {
         lastReset = props.reset;
         cam = 0; time = 0; birdY = height * 0.42; vy = 0; gateSerial = 0;
-        crashAt = null; crashSent = false; wasFailed = false;
+        crashAt = null; crashSent = false; wasFailed = false; trapHit = false;
         seedGates();
       }
       if (props.cheer !== lastCheer) {
@@ -190,14 +193,15 @@ export function SkyCanvas({
 
       for (const gate of gates) {
         const screenX = gate.x - cam;
-        const half = ambient ? height * 0.42 : height * (easy ? 0.3 : 0.24);
-        const near = Math.abs(screenX - birdX) < 36;
-        const outside = birdY < gate.gapY - half || birdY > gate.gapY + half;
-        if (!ambient && near && outside) {
-          birdY += (gate.gapY - birdY) * Math.min(1, 8 * dt);
-          gate.glow = 1;
+        const near = Math.abs(screenX - birdX) < 34;
+        // Traps sit on the ground. The bird must actively stay above them.
+        const trapTop = height - 112;
+        const birdBottom = birdY + 30;
+        if (!ambient && near && birdBottom > trapTop && !trapHit) {
+          trapHit = true;
+          propsRef.current.onHit();
         }
-        if (props.cheer === lastCheer && near && vy < -40) gate.glow = 1;
+        if (near && vy < -40) gate.glow = 1;
         gate.glow = Math.max(0, gate.glow - dt * 0.8);
       }
 
@@ -214,33 +218,35 @@ export function SkyCanvas({
 
     const drawGates = () => {
       const ambient = propsRef.current.mode === "ambient";
-      const easy = propsRef.current.difficulty === "easy";
-      const half = ambient ? height * 0.42 : height * (easy ? 0.3 : 0.24);
-      for (const gate of gates) {
-        const x = gate.x - cam;
-        if (x < -80 || x > width + 80) continue;
-        ctx.fillStyle = gate.glow > 0.05 ? GOLD : CLOUD;
-        ctx.globalAlpha = ambient ? 0.55 : 0.95;
-        let y = -10;
-        while (y < gate.gapY - half) {
-          puff(x, y, 1.15);
-          y += 28;
-        }
-        y = gate.gapY + half;
-        while (y < height + 20) {
-          puff(x, y, 1.15);
-          y += 28;
-        }
-        ctx.globalAlpha = 0.85;
-        ctx.strokeStyle = gate.glow > 0.05 ? GOLD : "rgba(22,50,58,0.18)";
-        ctx.lineWidth = 3;
+      for (const trap of gates) {
+        const x = trap.x - cam;
+        if (x < -90 || x > width + 90) continue;
+        const base = height - 30;
+        const spikeWidth = 30;
+        const count = 3;
+        ctx.save();
+        ctx.globalAlpha = ambient ? 0.5 : 1;
+        // Heavy hazard base with repeated sharp spikes: a visible ground trap.
+        ctx.fillStyle = trap.glow > 0.05 ? "#ffb02e" : "#b9343c";
         ctx.beginPath();
-        ctx.arc(x, gate.gapY, 22, 0, Math.PI * 2);
-        ctx.stroke();
-        ctx.globalAlpha = 1;
+        ctx.roundRect(x - 48, base - 12, 96, 18, 7);
+        ctx.fill();
+        ctx.fillStyle = "#f7f1df";
+        ctx.strokeStyle = "#7f2430";
+        ctx.lineWidth = 2;
+        for (let i = 0; i < count; i++) {
+          const sx = x - 42 + i * spikeWidth;
+          ctx.beginPath();
+          ctx.moveTo(sx, base - 10);
+          ctx.lineTo(sx + spikeWidth / 2, base - 76);
+          ctx.lineTo(sx + spikeWidth, base - 10);
+          ctx.closePath();
+          ctx.fill();
+          ctx.stroke();
+        }
+        ctx.restore();
       }
     };
-
     const drawBird = () => {
       const flap = propsRef.current.reduced ? 0.2 : Math.sin(time * (vy < -20 ? 14 : 7));
       const squash = 1 - Math.min(0.12, Math.abs(vy) / 900);
