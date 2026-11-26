@@ -463,9 +463,9 @@ export function SkyCanvas({
       drawCity();
       drawHills(78, 16, HILL_FAR, 0.25);
       drawTreeLine();
-      drawGates();
       drawHills(40, 12, HILL_NEAR, 0.45);
       drawRunway();
+      drawGates();
       drawBird();
 
       for (const p of particles) {
