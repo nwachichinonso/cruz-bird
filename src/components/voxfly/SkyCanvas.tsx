@@ -13,10 +13,10 @@ const SUN = "#e6a312";
 const CLOUD = "#fffdf8";
 const HILL_FAR = "#c5e6d2";
 const HILL_NEAR = "#3e9a62";
-const BIRD = "#128f84";
-const BIRD_DEEP = "#0c6d64";
-const BELLY = "#fff6ea";
-const BEAK = "#e36a45";
+const BIRD = "#69c9f4";
+const BIRD_DEEP = "#267db8";
+const BELLY = "#f4fbff";
+const BEAK = "#f28b32";
 const INK = "#16323a";
 const GOLD = "#e6a312";
 
@@ -268,8 +268,21 @@ export function SkyCanvas({
       ctx.restore();
       ctx.fillStyle = BIRD;
       ctx.beginPath();
-      ctx.ellipse(0, 0, 30, 22, 0, 0, Math.PI * 2);
+      ctx.ellipse(0, 0, 30, 24, 0, 0, Math.PI * 2);
       ctx.fill();
+      // Soft feather tufts and layered wing detail inspired by the blue reference bird.
+      ctx.fillStyle = "#9be0ff";
+      for (let i = 0; i < 7; i++) {
+        ctx.beginPath();
+        ctx.ellipse(-17 + i * 4, -19 - (i % 3) * 2, 5, 11, -0.45 + i * 0.12, 0, Math.PI * 2);
+        ctx.fill();
+      }
+      ctx.fillStyle = "#3f9bd0";
+      for (let i = 0; i < 4; i++) {
+        ctx.beginPath();
+        ctx.ellipse(-17 + i * 5, 7 + (i % 2) * 4, 7, 3, -0.35, 0, Math.PI * 2);
+        ctx.fill();
+      }
       ctx.fillStyle = BELLY;
       ctx.beginPath();
       ctx.ellipse(6, 5, 16, 12, 0, 0, Math.PI * 2);
@@ -278,14 +291,30 @@ export function SkyCanvas({
       ctx.beginPath();
       ctx.ellipse(2, 12, 12, 4.5, 0.1, 0, Math.PI * 2);
       ctx.fill();
+      // Big expressive eyes behind the signature round glasses.
+      ctx.fillStyle = "#ffffff";
+      ctx.beginPath();
+      ctx.ellipse(8, -5, 8, 9, 0, 0, Math.PI * 2);
+      ctx.ellipse(23, -5, 7, 9, 0, 0, Math.PI * 2);
+      ctx.fill();
       ctx.fillStyle = INK;
       ctx.beginPath();
-      ctx.arc(12, -4, 5, 0, Math.PI * 2);
+      ctx.arc(10, -4, 4.3, 0, Math.PI * 2);
+      ctx.arc(24, -4, 4.1, 0, Math.PI * 2);
       ctx.fill();
       ctx.fillStyle = "#ffffff";
       ctx.beginPath();
-      ctx.arc(13.6, -5.4, 1.7, 0, Math.PI * 2);
+      ctx.arc(11.5, -5.5, 1.6, 0, Math.PI * 2);
+      ctx.arc(25.5, -5.5, 1.5, 0, Math.PI * 2);
       ctx.fill();
+      ctx.strokeStyle = "#172c49";
+      ctx.lineWidth = 2.5;
+      ctx.beginPath();
+      ctx.roundRect(0, -15, 17, 20, 6);
+      ctx.roundRect(17, -15, 15, 20, 6);
+      ctx.moveTo(17, -7);
+      ctx.lineTo(18, -7);
+      ctx.stroke();
       ctx.fillStyle = BEAK;
       ctx.beginPath();
       ctx.moveTo(24, -2);
