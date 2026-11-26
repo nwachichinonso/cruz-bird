@@ -52,6 +52,10 @@ export function CruzingBird() {
   const advanceLock = useRef(false);
   const failureLock = useRef(false);
   const voiceHitsRef = useRef(0);
+  const letterTimerRef = useRef<number | null>(null);
+  const letterTickRef = useRef<number | null>(null);
+  const letterStartedRef = useRef(false);
+  const [letterSeconds, setLetterSeconds] = useState(0);
   indexRef.current = index;
   screenRef.current = screen;
 
@@ -132,6 +136,12 @@ export function CruzingBird() {
 
   const score = () => {
     if (screenRef.current !== "play" || advanceLock.current || failureLock.current) return;
+    if (letterTimerRef.current !== null) window.clearTimeout(letterTimerRef.current);
+    if (letterTickRef.current !== null) window.clearInterval(letterTickRef.current);
+    letterTimerRef.current = null;
+    letterTickRef.current = null;
+    letterStartedRef.current = false;
+    setLetterSeconds(0);
     advanceLock.current = true;
     window.setTimeout(() => {
       advanceLock.current = false;
@@ -163,6 +173,8 @@ export function CruzingBird() {
     }
     const next = i + 1;
     failureLock.current = false;
+    letterStartedRef.current = false;
+    setLetterSeconds(0);
     voiceHitsRef.current = 0;
     setVoiceHits(0);
     indexRef.current = next;
@@ -173,6 +185,12 @@ export function CruzingBird() {
   const failRun = (heard?: string) => {
     if (screenRef.current !== "play" || failureLock.current) return;
     failureLock.current = true;
+    if (letterTimerRef.current !== null) window.clearTimeout(letterTimerRef.current);
+    if (letterTickRef.current !== null) window.clearInterval(letterTickRef.current);
+    letterTimerRef.current = null;
+    letterTickRef.current = null;
+    letterStartedRef.current = false;
+    setLetterSeconds(0);
     setFailed(true);
     const id = LETTERS[indexRef.current].id;
     setNote(heard ? `I heard “${heard.slice(0, 28)}”. The bird is falling!` : `Say ${id} before the bird falls!`);
@@ -188,6 +206,27 @@ export function CruzingBird() {
   const scoreRef = useRef(score);
   scoreRef.current = score;
 
+  function startLetterHold() {
+    if (screenRef.current !== "play" || failureLock.current || letterStartedRef.current) return;
+    letterStartedRef.current = true;
+    setLetterSeconds(20);
+    let remaining = 20;
+    letterTickRef.current = window.setInterval(() => {
+      remaining -= 1;
+      setLetterSeconds(Math.max(0, remaining));
+      if (remaining <= 0) {
+        if (letterTickRef.current !== null) window.clearInterval(letterTickRef.current);
+        letterTickRef.current = null;
+        letterTimerRef.current = window.setTimeout(() => scoreRef.current(), 0);
+      }
+    }, 1000);
+  }
+
+  useEffect(() => () => {
+    if (letterTimerRef.current !== null) window.clearTimeout(letterTimerRef.current);
+    if (letterTickRef.current !== null) window.clearInterval(letterTickRef.current);
+  }, []);
+
   const voiceOn =
     save.settings.input === "voice" && !hidden && ((screen === "play" && !paused && !failed) || screen === "test");
 
@@ -202,13 +241,7 @@ export function CruzingBird() {
         startPlay(pendingFrom.current);
         return;
       }
-      voiceHitsRef.current += 1;
-      setVoiceHits(voiceHitsRef.current);
-      if (voiceHitsRef.current >= 3) {
-        voiceHitsRef.current = 0;
-        setVoiceHits(0);
-        scoreRef.current();
-      }
+      startLetterHold();
     },
     onMiss: (text) => {
       if (screenRef.current !== "play") return;
@@ -233,7 +266,7 @@ export function CruzingBird() {
       if (!canTap) return;
       if (event.key === "Enter" || event.key === " ") {
         event.preventDefault();
-        scoreRef.current();
+        startLetterHold();
       }
     };
     window.addEventListener("keydown", onKey);
@@ -383,7 +416,7 @@ export function CruzingBird() {
             </div>
             <div className="card mt-4">
               <h1 className="font-display text-5xl tracking-wide">Cruzing Bird</h1>
-              <p className="mt-1 text-muted">Say the same letter three times to power the bird forward.</p>
+              <p className="mt-1 text-muted">Pronounce each letter, then keep flying through obstacles for 20 seconds.</p>
             </div>
             <div className="card mt-auto flex flex-col gap-3">
               <button type="button" className="btn btn-primary" onClick={() => requestPlay(save.resumeIndex)}>
@@ -481,15 +514,15 @@ export function CruzingBird() {
               <div className="mx-auto mt-5 h-2 max-w-xs overflow-hidden rounded-full bg-white/30 shadow-inner">
                 <div className="h-full rounded-full bg-gold transition-[width] duration-300" style={{ width: `${((index + 1) / LETTERS.length) * 100}%` }} />
               </div>
-              <p className="mt-2 text-sm font-extrabold tracking-wide text-white drop-shadow">LETTER {index + 1} / {LETTERS.length} · {save.settings.input === "voice" ? `${voiceHits}/3 CALLS` : "TAP TO FLY"} · 3 CALLS TO FLY ON</p>
+              <p className="mt-2 text-sm font-extrabold tracking-wide text-white drop-shadow">LETTER {index + 1} / {LETTERS.length} · {letterSeconds > 0 ? `NEXT LETTER IN ${letterSeconds}S` : "SAY THE LETTER TO START"}</p>
             </div>
             <p className="mt-3 flex items-center justify-center gap-2 text-center text-ink" aria-live="polite">
               {listener.phase === "listening" && save.settings.input === "voice" && <span className="listen-dot" />}
               {status}
             </p>
             {showTap && (
-              <button type="button" className="btn btn-gold pointer-events-auto mt-auto" onClick={() => scoreRef.current()}>
-                I said {letter.id}
+              <button type="button" className="btn btn-gold pointer-events-auto mt-auto" onClick={startLetterHold}>
+                I said {letter.id} — start 20 seconds
               </button>
             )}
           </div>
